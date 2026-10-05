@@ -1,0 +1,1401 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Manning Guide von mamu hospitality: Personalbedarf eines Hotels aus einem Tagesdienstplan für das ganze Jahr berechnen.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232e2c2d'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='16' font-weight='700' fill='%23f5f5f5' text-anchor='middle'%3Em%3C/text%3E%3C/svg%3E">
+<style>html{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Manning Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Jost:wght@400;500;600&display=swap">
+<style>
+/* Layout: ruhige Arbeitsfläche auf Primärgrau, Kennzahlen-Leiste im Stil der mamu-Markenkern-Spalten (Haarlinie links, Zahl, Label), darunter Tabs mit Dienstplan-Gantt */
+:root{
+  --bg:#f5f5f5;         /* Primäre Hintergrundfarbe */
+  --surface:#fbfbfa;
+  --sunk:#ecebe8;
+  --olive:#77704a;      /* Sekundäre Hintergrundfarbe – Signalfläche */
+  --on-olive:#ffffff;
+  --terra:#b18e72;      /* Akzent: Zahlen, Linien */
+  --green:#455246;      /* Akzent: Icons, kleine Elemente */
+  --ink:#2e2c2d;        /* Schriftfarbe */
+  --ink-2:#5c595a;
+  --ink-3:#8a8687;
+  --line:#9b9599;       /* Trennstriche */
+  --hair:#dedcd8;
+  --bar-mgnt:#455246;
+  --bar-staff:#b18e72;
+  --bar-ext:#9b9599;
+  --focus:#77704a;
+  --warn:#9a5b1e;
+  --font-title:"Lato","Helvetica Neue",Arial,sans-serif;
+  --font-text:"Montserrat","Helvetica Neue",Arial,sans-serif;
+  --font-num:"Jost","Futura","Century Gothic","Avenir Next",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1d1c1b;--surface:#252423;--sunk:#2d2b2a;--olive:#5d5839;--on-olive:#f7f5ef;
+  --terra:#d8a274;--green:#8fb59a;--ink:#ecebe8;--ink-2:#bdbab5;--ink-3:#8d8984;--line:#6d686b;--hair:#3a3836;
+  --bar-mgnt:#5f8f6c;--bar-staff:#d8a274;--bar-ext:#7d787b;--focus:#d8a274;--warn:#e0a060;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1d1c1b;--surface:#252423;--sunk:#2d2b2a;--olive:#5d5839;--on-olive:#f7f5ef;
+  --terra:#d8a274;--green:#8fb59a;--ink:#ecebe8;--ink-2:#bdbab5;--ink-3:#8d8984;--line:#6d686b;--hair:#3a3836;
+  --bar-mgnt:#5f8f6c;--bar-staff:#d8a274;--bar-ext:#7d787b;--focus:#d8a274;--warn:#e0a060;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-text);font-size:13px;line-height:1.5}
+.wrap{max-width:1440px;margin:0 auto;padding-inline:clamp(16px,3vw,40px);padding-block:20px 64px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--font-title);font-weight:700;margin:0;text-wrap:balance}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:16px 24px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--hair)}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand svg{width:96px;height:auto;color:var(--ink);flex:none}
+.brand .sep{width:1px;height:26px;background:var(--line)}
+.brand h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;font-weight:400}
+.top .spacer{flex:1}
+.proj-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.status{font-size:11px;color:var(--ink-3);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);display:inline-block}
+.status[data-s="saved"] i{background:var(--green)}
+.status[data-s="saving"] i{background:var(--terra)}
+.status[data-s="error"] i{background:var(--warn)}
+
+select,input[type=text],input[type=number]{background:var(--surface);border:1px solid var(--hair);border-radius:3px;padding:5px 8px;min-width:0}
+select:hover,input:hover{border-color:var(--line)}
+.btn{background:transparent;border:1px solid var(--line);border-radius:3px;padding:5px 12px;cursor:pointer;font-weight:500;font-size:12px;white-space:nowrap}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{opacity:.88}
+.btn.ghost{border-color:transparent;color:var(--ink-2)}
+.btn.ghost:hover{color:var(--ink);background:var(--sunk)}
+.btn.danger{color:var(--warn);border-color:transparent}
+.btn[disabled]{opacity:.4;cursor:default}
+.icon-btn{background:none;border:0;padding:3px 5px;cursor:pointer;color:var(--ink-3);border-radius:3px;font-size:14px;line-height:1}
+.icon-btn:hover{color:var(--ink);background:var(--sunk)}
+
+/* project head */
+.phead{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;padding-block:26px 22px}
+.phead .pname{flex:1 1 360px;min-width:0}
+.eyebrow{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.pname input{font-family:var(--font-title);font-size:clamp(22px,3vw,30px);font-weight:700;text-transform:uppercase;letter-spacing:.04em;border:0;border-bottom:1px solid transparent;background:transparent;width:100%;padding:2px 0;border-radius:0}
+.pname input:hover,.pname input:focus{border-bottom-color:var(--line);outline:none}
+.meta{display:flex;gap:20px;flex-wrap:wrap}
+.meta label{display:flex;flex-direction:column;gap:2px}
+.meta input,.meta select{width:170px}
+
+/* KPI columns – brand "Markenkern" device */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:20px 28px;padding-block:6px 26px}
+.kpi{border-left:1px solid var(--line);padding-left:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .v{font-family:var(--font-num);font-size:36px;line-height:1.05;font-weight:500;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:16px;color:var(--ink-3);font-weight:400;margin-left:4px}
+.kpi .l{font-weight:700;font-size:12.5px}
+.kpi .d{font-size:11.5px;color:var(--ink-2)}
+.kpi.lead .v{color:var(--terra)}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--hair);margin-bottom:22px;overflow-x:auto}
+.tab{background:none;border:0;padding:10px 14px;cursor:pointer;font-family:var(--font-title);text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--terra)}
+.tab:hover{color:var(--ink)}
+
+/* schedule toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:18px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--hair);background:var(--surface);border-radius:20px;padding:4px 12px;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:18px;height:8px;border-radius:2px;display:inline-block}
+.sw.m{background:var(--bar-mgnt)}.sw.s{background:var(--bar-staff)}
+.sw.p{background:repeating-linear-gradient(135deg,var(--bar-staff) 0 3px,transparent 3px 5px);border:1px solid var(--bar-staff)}
+.sw.x{border:1px dashed var(--bar-ext);background:transparent}
+.toggle{display:inline-flex;gap:6px;align-items:center;font-size:12px;cursor:pointer}
+
+/* division + department */
+.div-h{display:flex;align-items:baseline;gap:14px;margin:30px 0 10px;flex-wrap:wrap}
+.div-h h2{font-size:17px;letter-spacing:.12em;text-transform:uppercase;font-weight:400}
+.div-h .sum{font-size:12px;color:var(--ink-2)}
+.div-h .sum b{font-family:var(--font-num);font-weight:500;color:var(--ink);font-size:14px}
+.dept{background:var(--surface);border:1px solid var(--hair);border-radius:4px;margin-bottom:14px}
+.dept-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:10px 14px;border-bottom:1px solid var(--hair)}
+.dept-h .dn{font-family:var(--font-title);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em;border:0;background:transparent;padding:2px 0;border-bottom:1px solid transparent;border-radius:0;width:min(320px,100%)}
+.dept-h .dn:hover,.dept-h .dn:focus{border-bottom-color:var(--line);outline:none}
+.dstats{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2)}
+.dstats b{font-family:var(--font-num);font-weight:500;color:var(--ink);font-size:14px;margin-left:3px}
+.dstats .ideal b{color:var(--terra)}
+.dept-h .grow{flex:1}
+.dept-h select{font-size:11.5px;padding:3px 6px}
+.scroll{overflow-x:auto}
+table.sched{border-collapse:collapse;width:100%;min-width:1120px}
+.sched th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;text-align:left;padding:6px 6px;border-bottom:1px solid var(--hair);white-space:nowrap}
+.sched td{padding:3px 6px;border-bottom:1px solid var(--hair);vertical-align:middle}
+.sched tr:last-child td{border-bottom:0}
+.sched td.c-name input{width:100%;border-color:transparent;background:transparent}
+.sched td.c-name input:hover,.sched td.c-name input:focus{border-color:var(--hair);background:var(--bg)}
+.sched select{border-color:transparent;background:transparent;padding:3px 4px}
+.sched select:hover,.sched select:focus{border-color:var(--hair);background:var(--bg)}
+.c-name{width:220px}.c-emp{width:130px}.c-start{width:78px}.c-end{width:62px}.c-hrs{width:48px;text-align:right}.c-lock{width:44px;text-align:center}.c-act{width:58px;text-align:right;white-space:nowrap}
+.c-end,.c-hrs{font-family:var(--font-num);font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.c-end sup{color:var(--terra);font-size:9px;margin-left:1px}
+.tl{position:relative;height:16px;min-width:480px;background:
+  repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/24 - 1px),var(--hair) calc(100%/24 - 1px),var(--hair) calc(100%/24))}
+.tl .b{position:absolute;top:3px;bottom:3px;border-radius:2px}
+.tl .b.mgnt{background:var(--bar-mgnt)}
+.tl .b.ft{background:var(--bar-staff)}
+.tl .b.pt,.tl .b.ptr{background:repeating-linear-gradient(135deg,var(--bar-staff) 0 3px,transparent 3px 5px);border:1px solid var(--bar-staff)}
+.tl .b.ext{border:1px dashed var(--bar-ext);background:transparent}
+.hours{display:flex;min-width:480px;font-family:var(--font-num);font-size:10px;color:var(--ink-3);letter-spacing:0;text-transform:none;font-weight:400}
+.hours span{flex:1;text-align:left}
+.cov{display:flex;height:12px;min-width:480px;gap:0}
+.cov i{flex:1;background:var(--terra)}
+tr.auto td{background:var(--sunk)}
+tr.auto .c-name{font-style:italic;color:var(--ink-2)}
+.badge{display:inline-block;font-family:var(--font-num);font-size:11px;background:var(--ink);color:var(--bg);border-radius:10px;padding:0 7px;margin-left:6px;font-style:normal}
+.dept-f{display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--hair);flex-wrap:wrap;align-items:center}
+.confirm{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--warn)}
+.add-dept{margin:4px 0 6px}
+
+/* parameters */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:22px}
+.panel{background:var(--surface);border:1px solid var(--hair);border-radius:4px;padding:18px 20px;min-width:0}
+.panel h3{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.panel .hint{color:var(--ink-2);font-size:12px;margin:0 0 14px;max-width:62ch}
+.ptable{width:100%;border-collapse:collapse}
+.ptable th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid var(--hair)}
+.ptable td{padding:4px 6px;border-bottom:1px solid var(--hair)}
+.ptable input[type=number]{width:72px;text-align:right;font-family:var(--font-num)}
+.ptable input[type=text]{width:100%}
+.ptable td.out{white-space:nowrap;font-family:var(--font-num);color:var(--ink-2);text-align:right}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px 16px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field span{font-size:11.5px;color:var(--ink-2)}
+.field input{font-family:var(--font-num);width:100%}
+.formula{margin-top:14px;padding:10px 12px;background:var(--sunk);border-radius:3px;font-size:12px;color:var(--ink-2)}
+.formula b{font-family:var(--font-num);font-weight:500;color:var(--ink);font-size:13.5px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:5px 12px;cursor:pointer;font-size:12px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+/* results */
+.olive{background:var(--olive);color:var(--on-olive);border-radius:4px;padding:22px 24px;margin-bottom:22px}
+.olive h3{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:400;margin-bottom:14px}
+.mix{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:16px 24px}
+.mix>div{border-left:1px solid color-mix(in srgb,var(--on-olive) 50%,transparent);padding-left:10px}
+.mix .v{font-family:var(--font-num);font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
+.mix .l{font-size:11.5px;opacity:.85}
+.chart-h{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.chart-wrap{position:relative}
+#covChart{width:100%;height:auto;display:block}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:11.5px;padding:7px 10px;border-radius:3px;white-space:nowrap;transform:translate(-50%,-110%);z-index:3}
+.tip b{font-family:var(--font-num);font-size:14px;font-weight:500}
+table.res{border-collapse:collapse;width:100%;min-width:760px}
+.res th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.res th:first-child,.res td:first-child{text-align:left}
+.res td{padding:6px 8px;border-bottom:1px solid var(--hair);text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.res td:first-child{font-family:var(--font-text)}
+.res tr.dv td{font-family:var(--font-title);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:11.5px;padding-top:16px;border-bottom-color:var(--line)}
+.res tr.dv td.n{font-family:var(--font-num);letter-spacing:0;font-size:13px}
+.res tr.tot td{font-weight:600;border-top:2px solid var(--ink);border-bottom:0;font-size:14px}
+.res tr.tot td:first-child{font-family:var(--font-title);text-transform:uppercase;letter-spacing:.1em;font-size:12px}
+.res td.bars{width:30%;min-width:180px}
+.tw{display:flex;flex-direction:column;gap:2px}
+.tw i{display:block;height:5px;border-radius:0 2px 2px 0}
+.tw i.a{background:var(--bar-mgnt)}.tw i.b{background:var(--bar-staff)}
+.res td.ideal{color:var(--terra)}
+
+/* method */
+.method{max-width:780px;display:flex;flex-direction:column;gap:26px}
+.method section{border-left:1px solid var(--line);padding-left:16px}
+.method h3{font-size:14px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.method p{margin:0 0 8px;max-width:68ch;color:var(--ink-2)}
+.method ol{margin:0;padding-left:18px;color:var(--ink-2)}
+.method li{margin-bottom:4px}
+.method code{font-family:var(--font-num);background:var(--sunk);padding:1px 6px;border-radius:3px;color:var(--ink);font-size:12.5px}
+
+.empty{padding:60px 0;display:flex;flex-direction:column;gap:14px;align-items:flex-start;max-width:560px}
+.empty p{color:var(--ink-2);margin:0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:3px;font-size:12.5px;z-index:9;max-width:90vw}
+.foot{margin-top:48px;padding-top:14px;border-top:1px solid var(--hair);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--ink-3)}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:640px){.kpi .v{font-size:30px}.brand svg{width:80px}.meta input,.meta select{width:140px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* v2: project parameters, new-project dialog, draggable shifts */
+.pparams{display:flex;flex-direction:column;gap:8px;padding-block:0 24px}
+.pp-row{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:flex-end}
+.pp{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink-2)}
+.pp-sel{font-size:13.5px;padding:6px 8px}
+.ptable td input[data-tier]{width:72px;text-align:right;font-family:var(--font-num)}
+.pp input{width:96px;font-family:var(--font-num);font-size:15px}
+.pp.res{border-left:1px solid var(--line);padding-left:12px}
+.pp.res b{font-family:var(--font-num);font-weight:500;font-size:24px;line-height:1.1;color:var(--terra)}
+.pp.res small{font-family:var(--font-num);color:var(--ink-3);font-size:11px}
+.newdlg{margin-top:14px;max-width:760px}
+.np-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px 16px}
+.np-wide{grid-column:1/-1}.np-wide input{font-family:var(--font-text)!important}
+.np-base{grid-column:1/-1;border:0;padding:0;margin:0;display:flex;gap:18px;flex-wrap:wrap}
+.np-base legend{font-size:11.5px;color:var(--ink-2);padding:0;margin-bottom:4px}
+.c-chk{width:44px;text-align:center}
+.c-end{width:96px;white-space:nowrap}
+.c-end .nd{color:var(--terra);font-size:9.5px;margin-left:1px;font-family:var(--font-num)}
+.c-hrs{cursor:help}
+.tl{height:22px}
+.tl .b{top:5px;bottom:5px;cursor:grab;touch-action:none}
+.tl .b .hl,.tl .b .hr{position:absolute;top:-5px;bottom:-5px;width:10px;cursor:ew-resize;touch-action:none}
+.tl .b .hl{left:-5px}.tl .b .hr{right:-5px}
+.tl .b .hl::after,.tl .b .hr::after{content:"";position:absolute;top:3px;bottom:3px;left:4px;width:2px;border-radius:1px;background:var(--ink);opacity:0;transition:opacity .12s}
+.tl:hover .b .hl::after,.tl:hover .b .hr::after,.tl.dragging .b .hl::after,.tl.dragging .b .hr::after{opacity:.55}
+.tl.dragging .b{cursor:grabbing;box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--focus)}
+body.is-dragging{cursor:grabbing;user-select:none}
+.dtip{position:absolute;bottom:calc(100% + 2px);transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:var(--font-num);font-size:11px;padding:2px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;z-index:4}
+.drag-hint{color:var(--ink-3)}
+.c-tl{position:relative}
+
+/* v4: outlets */
+.outlets{grid-column:1/-1}
+.outlet{border-top:1px solid var(--hair);padding-top:14px;margin-top:14px}
+.ol-h{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-bottom:6px}
+.ol-name{font-family:var(--font-title);font-weight:700;text-transform:uppercase;letter-spacing:.06em;width:min(240px,100%)}
+.ol-note{flex:1 1 220px;min-width:0}
+.ol-sum{font-size:12px;color:var(--ink-2)}.ol-sum b{font-size:15px;font-weight:500;color:var(--terra)}
+table.otable{border-collapse:collapse;width:100%;min-width:900px}
+.otable th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;text-align:left;padding:5px 6px;border-bottom:1px solid var(--hair)}
+.otable td{padding:4px 6px;border-bottom:1px solid var(--hair);vertical-align:middle}
+.otable td.od{width:64px;white-space:nowrap}
+.otable td.ow{width:46%}
+.otable td.oh{width:44px;text-align:right;color:var(--ink-2)}
+.otable tr.closed td{color:var(--ink-3)}
+.win{display:inline-flex;align-items:center;gap:2px;margin:2px 10px 2px 0;white-space:nowrap}
+.win select{padding:3px 4px;font-family:var(--font-num)}
+.win .dash{color:var(--ink-3);padding:0 2px}
+.win .nd{color:var(--terra);font-size:9.5px;font-family:var(--font-num)}
+.muted{color:var(--ink-3);font-size:12px;margin-right:10px}
+.btn.sm{padding:3px 8px;font-size:11.5px}
+.otl{position:relative;height:16px;min-width:360px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/24 - 1px),var(--hair) calc(100%/24 - 1px),var(--hair) calc(100%/24))}
+.otl .ob{position:absolute;top:3px;bottom:3px;background:var(--green);border-radius:2px}
+.ol-f{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tl .owl{position:absolute;inset:0;pointer-events:none}
+.tl .owin{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--green) 16%,transparent);border-left:1px solid color-mix(in srgb,var(--green) 45%,transparent);border-right:1px solid color-mix(in srgb,var(--green) 45%,transparent)}
+.tl .owin.closed{background:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--ink-3) 18%,transparent) 4px 5px);border:0}
+.sw.o{background:color-mix(in srgb,var(--green) 22%,transparent);border:1px solid color-mix(in srgb,var(--green) 50%,transparent)}
+.band-info{font-size:11.5px;color:var(--ink-2);font-family:var(--font-num)}
+.dept-h select{font-size:11.5px;padding:3px 6px}
+
+/* v5: Beschäftigungsausmaß */
+table.sched{min-width:1240px}
+.c-lvl{width:128px;white-space:nowrap}
+.lvl{display:inline-flex;gap:5px;align-items:baseline;font-size:11.5px;padding:1px 8px;border-radius:10px;border:1px solid var(--hair);color:var(--ink-2)}
+.lvl b{font-family:var(--font-num);font-weight:500;color:var(--ink);font-size:12.5px}
+.lvl.full{border-color:color-mix(in srgb,var(--bar-staff) 60%,transparent)}
+.lvl.part,.lvl.low{border-style:dashed;border-color:var(--bar-staff)}
+.lvl.ext{border-style:dashed;color:var(--ink-3)}
+
+/* v7: Abdeckung Öffnungszeiten */
+.overview{margin-bottom:8px}
+.ov-h{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.ov-empty{font-size:12px;color:var(--ink-2)}
+table.ovt{border-collapse:collapse;width:100%;min-width:640px}
+.ovt th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600;text-align:center;padding:5px 4px;border-bottom:1px solid var(--hair)}
+.ovt th:first-child{text-align:left}
+.ovt td{padding:3px 4px;border-bottom:1px solid var(--hair);text-align:center}
+.ovt td:first-child{text-align:left;font-size:12.5px}
+.ov-dep{display:block;font-size:11px;color:var(--ink-3)}
+.ovc{width:100%;min-width:58px;border:1px solid var(--hair);background:var(--surface);border-radius:3px;padding:4px 2px;font-family:var(--font-num);font-size:12.5px;cursor:pointer}
+.ovc.ok{color:var(--green);border-color:color-mix(in srgb,var(--green) 40%,transparent)}
+.ovc.gap{color:var(--warn);border-color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,var(--surface));font-weight:600}
+.ovc.off{color:var(--ink-3)}
+.ovc.sel{box-shadow:0 0 0 2px var(--surface),0 0 0 3px var(--ink)}
+.gchip{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;padding:1px 9px;border-radius:10px;border:1px solid var(--hair);white-space:nowrap}
+.gchip.ok{color:var(--green);border-color:color-mix(in srgb,var(--green) 45%,transparent)}
+.gchip.gap{color:var(--warn);border-color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,transparent);font-weight:600}
+.gchip.off{color:var(--ink-3)}
+tr.orow td{background:color-mix(in srgb,var(--green) 5%,transparent)}
+.orow-l{font-size:10.5px;color:var(--ink-2)}
+.orow-l>span:first-child{margin-right:10px;text-transform:uppercase;letter-spacing:.06em}
+.dots{display:inline-flex;gap:3px;vertical-align:middle}
+.dot{border:1px solid var(--hair);background:var(--surface);border-radius:3px;font-size:10px;padding:0 4px;cursor:pointer;line-height:16px}
+.dot.ok{color:var(--green)}.dot.gap{color:var(--warn);border-color:var(--warn);font-weight:700}.dot.off{color:var(--ink-3);text-decoration:line-through}
+.dot.sel{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.dot.sel.gap{background:var(--warn);border-color:var(--warn)}
+.otl2{position:relative;height:16px;min-width:480px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/24 - 1px),var(--hair) calc(100%/24 - 1px),var(--hair) calc(100%/24))}
+.otl2 .op{position:absolute;top:2px;bottom:2px;background:color-mix(in srgb,var(--green) 55%,transparent);border-radius:2px}
+.otl2 .gp{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,var(--warn) 0 3px,transparent 3px 6px);border:1px solid var(--warn);border-radius:2px}
+.otl2 .closed-all{font-size:10.5px;color:var(--ink-3);position:absolute;left:4px;top:0}
+.sw.g{background:repeating-linear-gradient(135deg,var(--warn) 0 3px,transparent 3px 6px);border:1px solid var(--warn)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><svg viewBox="0 0 1889.2 306.29" fill="currentColor" role="img" aria-label="mamu"><path d="M1213,346.9A153.11,153.11,0,0,0,1085.76,415,153.09,153.09,0,0,0,958.52,346.9C874.09,346.9,805.4,415.59,805.4,500V653.14h51.76V500a101.37,101.37,0,0,1,202.73,0V653.14h51.75V500a101.37,101.37,0,0,1,202.73,0V653.14h51.76V500C1366.13,415.59,1297.44,346.9,1213,346.9Z" transform="translate(-805.4 -346.86)"/><path d="M2183.48,346.9A153.09,153.09,0,0,0,2056.24,415,153.09,153.09,0,0,0,1929,346.9c-84.43,0-153.12,68.69-153.12,153.12V653.14h51.75V500a101.37,101.37,0,0,1,202.73,0V653.14h51.76V500a101.37,101.37,0,0,1,202.73,0V653.14h51.75V500C2336.6,415.59,2267.91,346.9,2183.48,346.9Z" transform="translate(-805.4 -346.86)"/><path d="M2642.84,346.86V500a101.37,101.37,0,0,1-202.73,0V346.9h-51.75V500c0,84.42,68.69,153.11,153.12,153.11S2694.6,584.45,2694.6,500V346.86Z" transform="translate(-805.4 -346.86)"/><path d="M1571,346.9c-84.43,0-153.12,68.69-153.12,153.12S1486.57,653.14,1571,653.14h49.61V601.38H1571a101.36,101.36,0,1,1,101.32-102.2h0v154h51.76v-154h0C1723.64,415.14,1655.15,346.9,1571,346.9Z" transform="translate(-805.4 -346.86)"/></svg><span class="sep"></span><h1>Manning Guide</h1></div>
+    <div class="spacer"></div>
+    <div class="proj-ctl">
+      <label class="vh" for="projSel">Projekt</label>
+      <select id="projSel" aria-label="Projekt wählen"></select>
+      <button class="btn" id="btnNew">Neues Projekt</button>
+      <button class="btn ghost" id="btnDup">Duplizieren</button>
+      <button class="btn ghost" id="btnImport" title="Manning-Guide-Excel oder JSON-Sicherung laden">Importieren</button>
+      <button class="btn ghost" id="btnBackup" hidden title="Alle Projekte als JSON-Datei sichern">Sichern</button>
+      <input type="file" id="fileImport" accept=".xlsx,.xlsm,.xls,.json" hidden>
+      <button class="btn" id="btnExport">Excel exportieren</button>
+      <button class="btn primary" id="btnPdf">PDF exportieren</button>
+      <span id="delWrap"><button class="btn danger" id="btnDel">Löschen</button></span>
+    </div>
+    <span class="status" id="status" data-s="idle"><i></i><span>Lädt …</span></span>
+  </header>
+
+  <div id="newMenu" class="panel newdlg" hidden>
+    <h3>Neues Projekt</h3>
+    <p class="hint">Legen Sie die Rahmendaten fest. Alle Werte lassen sich später im Projekt ändern.</p>
+    <div class="np-grid">
+      <label class="field np-wide"><span>Projektname</span><input type="text" id="np-name" placeholder="z. B. Hotel Riviera"></label>
+      <fieldset class="np-base"><legend>Dienstplan</legend>
+        <label class="toggle"><input type="radio" name="np-base" value="tpl" checked> mamu-Vorlage (24 Abteilungen)</label>
+        <label class="toggle"><input type="radio" name="np-base" value="blank"> Leer</label></fieldset>
+      <label class="field"><span>Urlaubstage / Jahr</span><input type="number" id="np-hol" min="0" step="1" value="25"></label>
+      <label class="field"><span>Feiertage / Jahr</span><input type="number" id="np-ph" min="0" step="1" value="9"></label>
+      <label class="field"><span>Krankheitstage / Jahr</span><input type="number" id="np-sick" min="0" step="1" value="5"></label>
+      <label class="field"><span>Freie Tage / Jahr</span><input type="number" id="np-off" min="0" step="1" value="104"></label>
+      <label class="field"><span>Betriebstage / Jahr</span><input type="number" id="np-ops" min="0" max="366" step="1" value="365"></label>
+      <label class="field"><span>Zimmer</span><input type="number" id="np-rooms" min="0" step="1" value="186"></label>
+      <label class="field"><span>Pausenregel (Land)</span><select id="np-country"><option value="AT" selected>Österreich</option><option value="DE">Deutschland</option><option value="CH">Schweiz</option><option value="IT">Italien</option><option value="HR">Kroatien</option></select></label>
+    </div>
+    <div class="formula" id="npWd"></div>
+    <div class="proj-ctl" style="margin-top:14px"><button class="btn primary" id="newCreate">Projekt anlegen</button><button class="btn ghost" id="newCancel">Abbrechen</button></div>
+  </div>
+
+  <main id="app"></main>
+
+  <footer class="foot"><span>mamu hospitality · Schönbrunner Straße 179 · AT-1120 Vienna</span><span>Manning Guide · Personalbedarfsrechnung</span></footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const TPL = [{"name":"ADMIN & GENERAL","deps":[{"name":"A&G","pos":[["General Manager","mgnt",600,0],["GM - Assistant","mgnt",540]]},{"name":"Human Resources","pos":[["HR - Manager","mgnt",540,0],["Ass. HR Manager","mgnt",540],["Training Manager","mgnt",540]]},{"name":"Purchasing","pos":[["Purchasing Manager","mgnt",540],["Purchasing Agent","mgnt",540]]},{"name":"Finance","pos":[["Director of Finance","mgnt",540,0],["Accounting","mgnt",540],["Accounting","mgnt",540],["Accounting","mgnt",540],["Accounting","mgnt",540]]},{"name":"Sales & Marketing","pos":[["Director of Sales & Marketing","mgnt",540,0],["Sales Manager","mgnt",540],["Sales Manager","mgnt",540],["Bankett Sales Manager","mgnt",540],["PR & Social Media Manager","mgnt",540]]}]},{"name":"ROOMS","deps":[{"name":"REZEPTION","pos":[["Front Office Manager","mgnt",540],["Ass. Front Office Manager","mgnt",420],["Ass. Front Office Manager","mgnt",900],["Teamleader","ft",360],["Teamleader","ft",900],["Front Office Agent","ft",450],["Front Office Agent","ft",450],["Front Office Agent","ft",900],["Front Office Agent","ft",900],["Night Manager","ft",1380]]},{"name":"CONCIERGE","pos":[["Concierge","ft",450],["Concierge","ft",900],["Bell Boy","ft",450],["Bell Boy","ft",600],["Bellboy","ft",900]]},{"name":"BACK OFFICE","pos":[["Reservations","ft",540],["Reservations","ft",540]]},{"name":"HOUSEKEEPING","pos":[["Housekeeping Manager","mgnt",540],["Ass. Housekeeping Manager","mgnt",420],["Uniform","ft",360],["Uniform","ft",810],["Teamleader Housekeeping","ft",480],["Teamleader Housekeeping","ft",480],["Maid (Public Areas)","ext",390],["Maid (Public Areas)","ext",840],["Maid (Night Cleaning)","ext",0],["Maid (Night Cleaning)","ext",0]]}]},{"name":"TECHNIC","deps":[{"name":"Technic","pos":[["Director of Engineering","mgnt",540,0],["Ass. To DOE","mgnt",540],["IT Manager","mgnt",540,0],["Haustechniker","ft",390],["Haustechniker","ext",840],["Haustechniker","ext",600]]}]},{"name":"SPA & Wellness","deps":[{"name":"SPA","pos":[["SPA Manager","mgnt",600],["Ass. SPA Manager","mgnt",420],["Masseur","ft",540],["Cosmetician","ft",540]]},{"name":"Fitness","pos":[["Personal Trainer","mgnt",540]]}]},{"name":"F&B","deps":[{"name":"RESTAURANT","pos":[["Restaurant Manager","mgnt",540],["Ass. Restaurant Manager","mgnt",390],["Ass. Restaurant Manager","mgnt",840],["Somelier","mgnt",690],["Somelier","mgnt",900],["Hostess","ft",390],["Hostess","ft",720],["Hostess","ft",780],["Hostess","ft",900],["Teamleader","ft",420],["Teamleader","ft",900],["Service (Station)","ft",420],["Service (Station)","ft",420],["Service (Station)","ft",480],["Service (Station)","ft",480],["Service (Station)","ft",510],["Service (Buffet)","ft",300],["Service (Station)","ft",900],["Service (Station)","ft",900],["Service (Station)","ft",900],["Service (Station)","ft",900],["Service (Station)","ft",960],["Service (Station)","ft",960],["Service (Station)","ft",960],["Service (Station)","ft",960],["Service | Pass","ft",960],["Service | Pass","ft",960],["Service | Pass","ft",960],["Service | Pass","ft",960],["Service (Bar)","ft",720],["Service (Bar)","ft",900],["Service (Bar)","ft",1020],["Service (Bar Service)","ft",1020],["Service (Bar Service)","ft",1080],["Service (Bar Service)","ft",1140]]},{"name":"MEETING & EVENT","pos":[["Meeting & Event Manager","mgnt",600],["Service","ft",540],["Service","ft",540],["Service","ft",540],["Temporary Staff","ext",900],["Temporary Staff","ext",1080],["Temporary Staff","ext",1080],["Temporary Staff","ext",1080]]},{"name":"BAR | GROUND FLOOR","pos":[["Bar Manager","mgnt",780],["Ass. Bar Manager","mgnt",900],["Bar Keeper","ft",720],["Bar Keeper","ft",1020],["Service","ft",540],["Service","ft",720],["Service","ft",960],["Service","ft",960],["Service","ft",1020]]},{"name":"LOUNGE | 6.FLOOR","pos":[["Lounge Manager","mgnt",540],["Ass. Lounge Manager","mgnt",810],["Bar Keeper","ft",720],["Bar Keeper","ft",900],["Service","ft",540],["Service","ft",540],["Service","ft",720],["Service","ft",900],["Service","ft",900]]},{"name":"OBSERVATION PLATFORM & MEMBERS CLUB","pos":[["Club Manager","ptr",480],["Ass. Club Manager","mgnt",900],["Hostess","mgnt",480],["Hostess","mgnt",930],["Bar Keeper","ft",720],["Bar Keeper","ft",900],["Service (Observation Platform)","ft",570],["Service (Observation Platform)","ft",570],["Service (Members Club)","ft",420],["Service (Members Club)","ft",420],["Service (Members Club)","mgnt",900],["Service (Members Club)","ft",900],["Temporary Staff","ext",900],["Temporary Staff","ext",900],["Temporary Staff","ext",900]]},{"name":"F&B ADMIN","pos":[["Director of F&B","mgnt",540,0],["Reservation","ft",480],["Reservation","ft",540]]}]},{"name":"KITCHEN","deps":[{"name":"RESTAURANT","pos":[["Executive Chef","mgnt",540],["Head Chef","mgnt",720],["Sous Chef","mgnt",540],["Sous Chef","mgnt",840],["Sous Chef","mgnt",900],["Sushi Chef","mgnt",540],["Sushi Chef","mgnt",900],["Chef Pattisier","mgnt",720],["Chef de Partie","ft",540],["Chef de Partie","ft",540],["Chef de Partie","ft",540],["Chef de Partie","ft",540],["Chef de Partie","ft",900],["Chef de Partie","ft",300],["Chef de Partie","ft",420],["Chef de Partie","ft",480],["Commis de Cuisine","ft",480],["Commis de Cuisine","ft",300],["Commis de Cuisine","ft",300],["Commis de Cuisine","ft",900],["Commis de Cuisine","ft",900],["Commis de Cuisine","ft",900],["Commis de Cuisine","ft",900],["Commis de Cuisine","ft",900],["Commis de Cuisine","ft",540],["Commis de Cuisine","ft",540],["Commis de Cuisine","ft",540],["Commis de Cuisine","ft",540],["Commis de Cuisine","ft",540]]},{"name":"MEETING & EVENT KITCHEN","pos":[["Head Chef","mgnt",540],["Chef de Partie","ft",540],["Commis de Cuisine","ft",540],["Commis de Cuisine","ft",540],["Temporary Staff","ext",540],["Temporary Staff","ext",540],["Temporary Staff","ext",540]]},{"name":"LOUNGE KITCHEN","pos":[["Chef de Partie","ft",540],["Chef de Partie","ft",900],["Commis de Cuisine","ft",540],["Commis de Cuisine","ft",540],["Commis de Cuisine","ft",900],["Commis de Cuisine","ft",900],["Temporary Staff","ext",540],["Temporary Staff","ext",900]]},{"name":"OBSERVATION PLATTFORM & MEMBERS CLUB","pos":[["Chef de Partie","ft",480],["Chef de Partie","ft",870],["Commis de Cuisine","ft",420],["Commis de Cuisine","ft",870]]},{"name":"STEWARDING","pos":[["Restaurant","ext",420],["Restaurant","ext",480],["Restaurant","ext",600],["Restaurant","ext",900],["Restaurant","ext",900],["Meeting & Event","ext",600],["Lounge Kichten","ext",540],["Lounge Kichten","ext",900],["Observation Platform & Members Club","ext",480],["Observation Platform & Members Club","ext",900]]}]},{"name":"OTHER","deps":[{"name":"SECURITY","pos":[["Security","ft",360,0],["Security","ft",870,0]]}]}];
+const EMP_KEYS=['mgnt','staff','ext'];             /* Rollen */
+const CATS=['mgnt','ft','pt','ptr','ext'];               /* errechnete Kategorien */
+const CAT_L={mgnt:'Management',ft:'Vollzeit',pt:'Teilzeit',ptr:'Part Timer',ext:'Fremdfirma'};
+const OLD_NET={ft:8,pt:4,ptr:3};
+const EMP_XLS={'Mgnt':'mgnt','Staff Full Time':'ft','Staff Part Time':'pt','Part Timer':'ptr','External Company':'ext'};
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt1=n=>(Math.round(n*10)/10).toLocaleString('de-AT',{minimumFractionDigits:1,maximumFractionDigits:1});
+const fmt2=n=>(Math.round(n*100)/100).toLocaleString('de-AT',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0=n=>Math.round(n).toLocaleString('de-AT');
+const hhmm=m=>{m=((m%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+const mod=m=>((m%1440)+1440)%1440;
+const SNAP=15;
+const TIMES=Array.from({length:48},(_,i)=>i*30);
+const QTIMES=Array.from({length:96},(_,i)=>i*15);
+const timeOpts=sel=>QTIMES.map(t=>`<option value="${t}"${t===sel?' selected':''}>${hhmm(t)}</option>`).join('');
+
+const DAYS=['Mo','Di','Mi','Do','Fr','Sa','So'];
+const DAYS_L=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+const closeOpts=sel=>[...QTIMES.slice(1),1440].map(t=>`<option value="${t}"${t===sel?' selected':''}>${t===1440?'24:00':hhmm(t)}</option>`).join('');
+const winLen=w=>{const a=w[0],b=w[1];return b>a?b-a:b+1440-a};
+const dayHours=d=>d.on?d.w.reduce((s,w)=>s+winLen(w),0)/60:0;
+const weekHours=o=>o.days.reduce((s,d)=>s+dayHours(d),0);
+const fmtWin=w=>`${hhmm(w[0])} – ${w[1]===1440?'24:00':hhmm(w[1])}${w[1]<=w[0]&&w[1]!==1440?' (+1)':''}`;
+/* Textangabe der alten Vorlage ("07:00 – 11:00 / 18:00 – 22:00", "24h", "Laut Buchung") in Wochenplan umwandeln */
+function toOutlet(x){
+  if(x&&x.days)return x;
+  const h=String(x.h||'');let w=[];
+  if(/\b24\s*h/i.test(h))w=[[0,1440]];
+  else{const re=/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/g;let m;while((m=re.exec(h))){let a=+m[1]*60+ +m[2],b=+m[3]*60+ +m[4];if(b===0)b=1440;w.push([a,b])}}
+  const note=w.length?(h.match(/\(([^)]*)\)/)||[,''])[1]:h;
+  return {id:uid(),o:x.o||'Outlet',note:note.trim(),days:DAYS.map(()=>({on:1,w:w.map(v=>[...v])}))};
+}
+function bandFor(depId){
+  const [,d]=findDep(depId);if(!d||!d.outlet)return '';
+  const o=(cur.ops||[]).find(x=>x.id===d.outlet);if(!o)return '';
+  const day=o.days[ui.refDay||0];if(!day.on)return '<span class="owin closed" style="left:0;width:100%" title="geschlossen"></span>';
+  return day.w.flatMap(w=>{const a=w[0],e=a+winLen(w);return e>1440?[[a,1440],[0,e-1440]]:[[a,e]]}).map(([a,b])=>`<span class="owin" style="left:${a/14.4}%;width:${(b-a)/14.4}%" title="${esc(o.o)} geöffnet"></span>`).join('');
+}
+
+function defaultEmp(){return{
+  mgnt:{label:'Management',net:8},
+  staff:{label:'Mitarbeiter',net:8},
+  ext:{label:'Fremdfirma',net:8}}}
+const LVL_DEF={full:100,part:50};
+/* gesetzliche Ruhepausen je Land: Pause, sobald die Arbeitszeit die Schwelle überschreitet (op '>') bzw. erreicht (op '>=') */
+const BRK={
+  AT:{name:'Österreich',ref:'AZG § 11',op:'>',paid:false,tiers:[{h:6,m:30}],note:'Bei mehr als 6 Stunden Arbeitszeit mindestens 30 Minuten unbezahlte Ruhepause.'},
+  DE:{name:'Deutschland',ref:'ArbZG § 4',op:'>',paid:false,tiers:[{h:6,m:30},{h:9,m:45}],note:'Mehr als 6 bis 9 Stunden: 30 Minuten, mehr als 9 Stunden: 45 Minuten.'},
+  CH:{name:'Schweiz',ref:'ArG Art. 15',op:'>',paid:false,tiers:[{h:5.5,m:15},{h:7,m:30},{h:9,m:60}],note:'Mehr als 5,5 Stunden: 15 Minuten, mehr als 7 Stunden: 30 Minuten, mehr als 9 Stunden: 60 Minuten.'},
+  IT:{name:'Italien',ref:'D.Lgs. 66/2003 Art. 8',op:'>',paid:false,tiers:[{h:6,m:10}],note:'Bei mehr als 6 Stunden eine Pause; Dauer laut Kollektivvertrag (CCNL), gesetzlich mindestens 10 Minuten.'},
+  HR:{name:'Kroatien',ref:'Zakon o radu čl. 73',op:'>=',paid:true,tiers:[{h:6,m:30}],note:'Ab 6 Stunden Arbeitszeit 30 Minuten Pause, die als Arbeitszeit zählt (bezahlt).'}
+};
+const brkPreset=c=>{const b=BRK[c]||BRK.AT;return {country:BRK[c]?c:'AT',op:b.op,paid:b.paid,tiers:b.tiers.map(t=>({...t}))}};
+const defF=e=>(e==='mgnt'||e==='ext')?0:1;
+const roleOf=e=>(e==='ft'||e==='pt'||e==='ptr')?'staff':e;   // 7-Tage-Bedarf (FTE-Haken) als Startwert
+
+function newProject(fromTpl,opt){
+  opt=opt||{};
+  const p={id:uid(),name:opt.name||(fromTpl?'Vorlage Stadthotel':'Neues Projekt'),status:'Entwurf',author:'Max Murmann',created:new Date().toISOString().slice(0,10),
+    updatedAt:Date.now(),v:2,
+    ops:fromTpl?[
+      {o:'Main Restaurant',d:'MO – SU',h:'07:00 – 11:00 / 12:30 – 14:30 / 18:00 – 22:00'},
+      {o:'Roomservice',d:'MO – SU',h:'24h (06:00 – 23:00 Restaurant-Team / 23:00 – 06:00 Rezeption)'},
+      {o:'Bar',d:'MO – SU',h:'12:00 – 00:00'},
+      {o:'Meeting & Event',d:'MO – SU',h:'Laut Buchung'},
+      {o:'SPA Bistro',d:'MO – SU',h:'10:00 – 18:00'}]:[{o:'Restaurant',d:'MO – SU',h:''}],
+    emp:defaultEmp(),
+    year:{ops:365,ph:9,sick:5,off:104,hol:25,weeks:52,fteWeek:40},
+    brk:brkPreset(opt.country||'AT'),lvl:{...LVL_DEF},
+    hk:{auto:!!fromTpl,rooms:fromTpl?186:100,occ:.75,per:14,emp:'ext',start:480,d:null,f:0,dep:null},
+    divs:[]};
+  for(const k of ['ops','ph','sick','off','hol'])if(opt[k]!=null&&!isNaN(opt[k]))p.year[k]=+opt[k];
+  if(opt.rooms!=null&&!isNaN(opt.rooms))p.hk.rooms=+opt.rooms;
+  const P=(t,e,s,l)=>({id:uid(),t,e:roleOf(e),s,l:l===undefined?1:l,f:defF(roleOf(e)),d:OLD_NET[e]&&OLD_NET[e]!==8?durForNet(p,OLD_NET[e]):null});
+  if(fromTpl){
+    p.divs=TPL.map(dv=>({id:uid(),name:dv.name,deps:dv.deps.map(d=>{
+      const dep={id:uid(),name:d.name,pos:d.pos.map(x=>P(x[0],x[1],x[2],x.length>3?x[3]:1))};
+      if(/HOUSEKEEPING/i.test(d.name))p.hk.dep=dep.id;return dep})}));
+    p.ops=p.ops.map(toOutlet);
+    const link={'RESTAURANT':'Main Restaurant','BAR | GROUND FLOOR':'Bar','MEETING & EVENT':'Meeting & Event','MEETING & EVENT KITCHEN':'Meeting & Event'};
+    for(const dv of p.divs)for(const d of dv.deps){const o=p.ops.find(x=>x.o===link[d.name]);if(o)d.outlet=o.id}
+  }else{
+    p.ops=p.ops.map(toOutlet);
+    p.divs=[{id:uid(),name:'Rooms',deps:[{id:uid(),name:'Rezeption',pos:[P('Front Office Manager','mgnt',540),P('Front Office Agent','ft',420),P('Front Office Agent','ft',900),P('Night Auditor','ft',1380)]}]}];
+  }
+  return p;
+}
+/* ältere Projektstände (Mgnt-Auswahl je Abteilung) auf den FTE-Haken je Position umstellen */
+function normalize(p){
+  if(!p||!p.divs)return p;
+  if(!p.brk||!p.brk.tiers)p.brk=brkPreset('AT');
+  p.lvl=Object.assign({...LVL_DEF},p.lvl||{});
+  const old=p.emp||{};
+  if(old.ft||!old.staff){ /* Anstellungsarten → Rollen; Schichtlänge der alten Art bleibt erhalten */
+    const net=k=>+((old[k]||{}).net)||OLD_NET[k]||8;
+    for(const dv of p.divs)for(const d of dv.deps)for(const pos of d.pos){
+      if(OLD_NET[pos.e]){if(pos.d==null&&net(pos.e)!==net('ft'))pos.d=durForNet(p,net(pos.e));pos.e='staff'}}
+    if(OLD_NET[p.hk&&p.hk.emp]){if(p.hk.d==null&&net(p.hk.emp)!==net('ft'))p.hk.d=durForNet(p,net(p.hk.emp));p.hk.emp='staff'}
+    p.emp={mgnt:{label:(old.mgnt&&old.mgnt.label)||'Management',net:+(old.mgnt&&old.mgnt.net)||8},staff:{label:'Mitarbeiter',net:net('ft')},ext:{label:(old.ext&&old.ext.label)||'Fremdfirma',net:+(old.ext&&old.ext.net)||8}};
+  }
+  for(const k of EMP_KEYS){p.emp[k]=p.emp[k]||defaultEmp()[k]}
+  p.ops=(p.ops||[]).map(toOutlet);
+  if(!(+p.emp.ext.net))p.emp.ext.net=8;
+  p.hk=Object.assign({auto:false,rooms:100,occ:.75,per:14,emp:'ext',start:480,d:null,f:0,dep:null},p.hk||{});
+  for(const dv of p.divs)for(const d of dv.deps){
+    const scale=d.mgnt==='scale'||(d.mgnt!=='fix'&&p.mgntScale);
+    for(const pos of d.pos){
+      if(pos.f===undefined)pos.f=pos.e==='mgnt'?(scale?1:0):defF(pos.e);
+      if(pos.d===undefined)pos.d=null;
+    }
+    delete d.mgnt;
+  }
+  delete p.mgntScale;p.v=2;return p;
+}
+
+/* ---------- calculation ---------- */
+function hkCount(p){return Math.ceil((+p.hk.rooms||0)*(+p.hk.occ||0)/Math.max(+p.hk.per||1,0.0001)-1e-9)}
+function hkPos(p){return {id:'hk',t:'Zimmermädchen (Rooms)',e:p.hk.emp,s:+p.hk.start,d:p.hk.d,f:p.hk.f?1:0,l:1,auto:true}}
+function deptPositions(p,d){
+  const list=d.pos.slice();
+  if(p.hk.auto&&p.hk.dep===d.id){const n=hkCount(p),h=hkPos(p);for(let i=0;i<n;i++)list.push({...h,id:'hk'+i})}
+  return list;
+}
+function workDays(p){const y=p.year;return y.ops-y.ph-y.sick-y.off-y.hol}
+/* geforderte Pause (Min.) für eine Arbeitszeit in Stunden */
+function reqBreak(p,wh){const b=p.brk;let m=0;for(const t of b.tiers){const h=+t.h||0;if(b.op==='>='?wh>=h-1e-9:wh>h+1e-9)m=Math.max(m,+t.m||0)}return m}
+/* Pause innerhalb einer Präsenz von P Minuten: kleinste Pause, mit der die verbleibende Arbeitszeit gesetzeskonform ist */
+function breakMin(p,P){
+  if(p.brk.paid)return reqBreak(p,P/60);
+  const cands=[0,...p.brk.tiers.map(t=>+t.m||0)].sort((a,b)=>a-b);
+  for(const b of cands){if(b<P&&reqBreak(p,(P-b)/60)<=b)return b}
+  return Math.max(...cands);
+}
+function durForNet(p,h){const net=(+h||0)*60;const P=p.brk.paid?net:net+reqBreak(p,net/60);return Math.max(SNAP,Math.ceil(P/SNAP-1e-9)*SNAP)}
+function defDur(p,e){return durForNet(p,p.emp[e].net)}
+/* Beschäftigungsausmaß: Arbeitszeit/Tag ÷ (FTE-Basis ÷ 5 Tage) */
+const dayBase=p=>(+p.year.fteWeek||40)/5;
+function pct(p,pos){return pos.e==='ext'?0:netH(p,pos)/dayBase(p)}
+function catOf(p,pos){if(pos.e==='ext')return 'ext';if(pos.e==='mgnt')return 'mgnt';const q=pct(p,pos)*100+1e-6;return q>=p.lvl.full?'ft':q>=p.lvl.part?'pt':'ptr'}
+function lvlLabel(p,pos){if(pos.e==='ext')return 'Fremdfirma';const q=pct(p,pos)*100+1e-6,c=q>=p.lvl.full?'Vollzeit':q>=p.lvl.part?'Teilzeit':'Part Timer';return `${fmtPct(pct(p,pos))} ${c}`}
+const fmtPct=x=>(Math.round(x*1000)/10).toLocaleString('de-AT',{maximumFractionDigits:1})+' %';
+function dur(p,pos){return pos.d!=null?pos.d:defDur(p,pos.e)}
+function brkOf(p,pos){return breakMin(p,dur(p,pos))}
+function netH(p,pos){const P=dur(p,pos);return p.brk.paid?P/60:Math.max(0,(P-breakMin(p,P))/60)}
+const days=pos=>pos.f?7:5;
+function onDuty(p,pos,slot){const s=pos.s,end=s+dur(p,pos);return (slot>=s&&slot<end)||(end>1440&&slot<end-1440)}
+function calc(p){
+  const y=p.year,wd=workDays(p),res={deps:{},divs:{}};
+  const blank=()=>({heads:0,ext:0,d5:0,d7:0,ideal:0,hrs:0,fte:0,lock:0,byEmp:{mgnt:0,ft:0,pt:0,ptr:0,ext:0},byRole:{mgnt:0,staff:0}});
+  const add=(A,B)=>{for(const k of ['heads','ext','d5','d7','ideal','hrs','fte','lock'])A[k]+=B[k];for(const k of CATS)A.byEmp[k]+=B.byEmp[k];A.byRole.mgnt+=B.byRole.mgnt;A.byRole.staff+=B.byRole.staff};
+  const T=blank(),fteBase=(+y.fteWeek||40)*(+y.weeks||52);
+  for(const dv of p.divs){const D=blank();
+    for(const d of dv.deps){const R=blank();
+      for(const pos of deptPositions(p,d)){
+        R.byEmp[catOf(p,pos)]++;if(pos.l)R.lock++;
+        if(pos.e==='ext'){R.ext++;continue}
+        R.heads++;const v=pct(p,pos);R.byRole[pos.e]+=v;
+        if(pos.f)R.d7+=v;else R.d5+=v;
+        R.hrs+=netH(p,pos)*days(pos)*(+y.weeks);
+      }
+      R.ideal=R.d5+(wd>0?R.d7*y.ops/wd:0);
+      R.fte=fteBase?R.hrs/fteBase:0;
+      res.deps[d.id]=R;add(D,R);
+    }
+    res.divs[dv.id]=D;add(T,D);
+  }
+  res.tot=T;res.wd=wd;return res;
+}
+function coverage(p,filterDiv,incExt){
+  const out=TIMES.map(()=>({n:0,mgnt:0,ft:0,pt:0,ptr:0,ext:0}));
+  for(const dv of p.divs){if(filterDiv&&filterDiv!==dv.id)continue;
+    for(const d of dv.deps)for(const pos of deptPositions(p,d)){
+      if(pos.e==='ext'&&!incExt)continue;
+      const c=catOf(p,pos);TIMES.forEach((t,i)=>{if(onDuty(p,pos,t)){out[i].n++;out[i][c]++}})}}
+  return out;
+}
+
+/* ---------- state ---------- */
+let db=null,projects={},cur=null,dirty=false,saving=false,saveTimer=null,readOnly=false,localMode=false,booting=true;
+let ui={refDay:0,tab:'parameter',div:'',showExt:true,covDiv:'',covExt:false,confirmDel:null};
+try{const h=location.hash.slice(1);if(['dienstplan','parameter','auswertung','methodik'].includes(h))ui.tab=h}catch(e){}
+try{ui.showExt=localStorage.getItem('mg-ext')!=='0'}catch(e){}
+
+function setStatus(s,txt){const el=$('#status');el.dataset.s=s;el.querySelector('span').textContent=txt}
+function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,2600)}
+function touch(){
+  if(!cur)return;cur.updatedAt=Date.now();dirty=true;
+  if(localMode){projects[cur.id]=cur;localSave();setStatus('saved','Im Browser gespeichert');dirty=false;return}
+  if(readOnly)return;
+  setStatus('saving','Änderungen …');clearTimeout(saveTimer);saveTimer=setTimeout(save,900);
+}
+async function save(){
+  if(!db||!cur||readOnly)return;
+  if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(save,600);return}
+  saving=true;dirty=false;setStatus('saving','Speichert …');
+  const body=JSON.parse(JSON.stringify(cur));
+  try{await db.doc('projects/'+cur.id).set(body);setStatus('saved','Gespeichert')}
+  catch(e){
+    if(['permission_denied','not_granted','forbidden'].includes(e&&e.code)){readOnly=true;setStatus('error','Nur Ansicht – keine Schreibrechte')}
+    else{dirty=true;setStatus('error','Nicht gespeichert – erneuter Versuch');clearTimeout(saveTimer);saveTimer=setTimeout(save,4000)}
+  }
+  saving=false;
+}
+function localSave(){try{localStorage.setItem('mg-projects',JSON.stringify(projects))}catch(e){toast('Browser-Speicher voll oder gesperrt')}}
+function rememberCur(){try{localStorage.setItem('mg-cur',cur?cur.id:'')}catch(e){}}
+
+/* ---------- render: top ---------- */
+function renderProjSel(){
+  const sel=$('#projSel');const list=Object.values(projects).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  sel.innerHTML=list.length?list.map(p=>`<option value="${esc(p.id)}">${esc(p.name||'Ohne Namen')}</option>`).join(''):'<option value="">Kein Projekt</option>';
+  if(cur)sel.value=cur.id;
+  ['#btnDup','#btnExport','#btnPdf'].forEach(s=>$(s).disabled=!cur);
+}
+function renderDelWrap(){
+  const w=$('#delWrap');
+  if(ui.confirmDel==='project')w.innerHTML=`<span class="confirm">Projekt löschen? <button class="btn danger" id="delYes">Ja, löschen</button><button class="btn ghost" id="delNo">Nein</button></span>`;
+  else w.innerHTML=`<button class="btn danger" id="btnDel" ${cur?'':'disabled'}>Löschen</button>`;
+}
+function render(){
+  renderProjSel();renderDelWrap();
+  const app=$('#app');
+  if(!cur&&booting){app.innerHTML=`<div class="empty"><span class="eyebrow">Manning Guide</span><p>Projekte werden geladen …</p></div>`;return}
+  if(!cur){app.innerHTML=`<div class="empty"><span class="eyebrow">Noch kein Projekt</span><h2 style="font-size:22px;text-transform:uppercase;letter-spacing:.06em">Personalbedarf aus einem Tagesdienstplan</h2><p>Legen Sie ein Projekt an und definieren Sie dabei Urlaubs-, Feier- und Krankheitstage. Die mamu-Vorlage enthält einen vollständigen Musterdienstplan mit 24 Abteilungen. Alternativ importieren Sie eine ausgefüllte Manning-Guide-Excel.</p><div class="proj-ctl"><button class="btn primary" data-act="openNew">Projekt anlegen</button><button class="btn ghost" data-act="import">Excel importieren</button></div></div>`;return}
+  const R=calc(cur);
+  app.innerHTML=renderHead(R)+`<section class="kpis" id="kpis">${renderKpis(R)}</section>
+  <nav class="tabs" role="tablist">${[['parameter','Parameter'],['dienstplan','Tagesdienstplan'],['auswertung','Jahresbedarf'],['methodik','Methodik']].map(([k,l])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${ui.tab===k}">${l}</button>`).join('')}</nav>
+  <div id="view"></div>`;
+  renderView(R);
+}
+const countryOpts=sel=>Object.entries(BRK).map(([k,b])=>`<option value="${k}" ${k===sel?'selected':''}>${b.name}</option>`).join('')+`<option value="custom" ${sel==='custom'?'selected':''}>Eigene Regel</option>`;
+const wdText=y=>`${y.ops} − ${y.ph} − ${y.sick} − ${y.off} − ${y.hol}`;
+function renderHead(R){
+  const y=cur.year;
+  return `<section class="phead"><div class="pname"><span class="eyebrow">Projekt</span><input id="pName" type="text" value="${esc(cur.name)}" aria-label="Projektname"></div>
+  <div class="meta"><label class="field"><span>Status</span><select id="pStatus">${['Entwurf','In Abstimmung','Freigegeben'].map(s=>`<option ${cur.status===s?'selected':''}>${s}</option>`).join('')}</select></label>
+  <label class="field"><span>Erstellt von</span><input id="pAuthor" type="text" value="${esc(cur.author)}"></label></div></section>
+  <section class="pparams" aria-label="Projektparameter">
+   <span class="eyebrow">Abwesenheiten je Mitarbeiter / Jahr</span>
+   <div class="pp-row">
+    <label class="pp"><span>Urlaubstage</span><input type="number" min="0" step="1" value="${y.hol}" data-year="hol"></label>
+    <label class="pp"><span>Feiertage</span><input type="number" min="0" step="1" value="${y.ph}" data-year="ph"></label>
+    <label class="pp"><span>Krankheitstage</span><input type="number" min="0" step="1" value="${y.sick}" data-year="sick"></label>
+    <label class="pp"><span>Freie Tage</span><input type="number" min="0" step="1" value="${y.off}" data-year="off"></label>
+    <label class="pp"><span>Pausenregel</span><select id="brkCountry" class="pp-sel">${countryOpts(cur.brk.country)}</select></label>
+    <div class="pp res"><span>Arbeitstage je MA</span><b class="num" id="wdHead">${workDays(cur)}</b><small id="wdHeadF">${wdText(y)}</small></div>
+   </div></section>`;
+}
+function renderKpis(R){
+  const T=R.tot,rooms=+cur.hk.rooms||0;
+  const cov=coverage(cur,'',false);let pk=0;cov.forEach((c,i)=>{if(c.n>cov[pk].n)pk=i});
+  return `<div class="kpi"><span class="v num">${fmt0(T.heads)}</span><span class="l">Heads pro Tag</span><span class="d">intern besetzte Schichten, zzgl. ${fmt0(T.ext)} Fremdfirma</span></div>
+  <div class="kpi lead"><span class="v num">${fmt1(T.ideal)}</span><span class="l">IDEAL · Jahresbedarf</span><span class="d">Köpfe inkl. Urlaub, Frei, Feiertag, Krankheit</span></div>
+  <div class="kpi"><span class="v num">${fmt1(T.fte)}</span><span class="l">FTE</span><span class="d">Vollzeitäquivalente à ${fmt0(cur.year.fteWeek)} Std/Woche</span></div>
+  <div class="kpi"><span class="v num">${fmt0(T.lock)}</span><span class="l">Spinde</span><span class="d">ohne Executive-Team, inkl. Fremdfirmen</span></div>
+  <div class="kpi"><span class="v num">${rooms?fmt2(T.ideal/rooms):'–'}</span><span class="l">Mitarbeiter je Zimmer</span><span class="d">IDEAL ÷ ${fmt0(rooms)} Zimmer · Spitze ${cov[pk].n} MA um ${hhmm(TIMES[pk])}</span></div>`;
+}
+function refreshKpis(){const k=$('#kpis');if(k)k.innerHTML=renderKpis(calc(cur))}
+function renderView(R){
+  const v=$('#view');if(!v)return;R=R||calc(cur);
+  if(ui.tab==='dienstplan')v.innerHTML=renderSchedule(R);
+  else if(ui.tab==='parameter')v.innerHTML=renderParams(R);
+  else if(ui.tab==='auswertung'){v.innerHTML=renderResults(R);drawCov()}
+  else v.innerHTML=renderMethod(R);
+}
+
+/* ---------- schedule ---------- */
+function bars(pos){
+  const s=pos.s,len=dur(cur,pos),end=s+len,cls=catOf(cur,pos);
+  const segs=end>1440?[[s,1440,1,0],[0,end-1440,0,1]]:[[s,end,1,1]];
+  return segs.map(([a,b,hl,hr])=>`<span class="b ${cls}" style="left:${a/14.4}%;width:${(b-a)/14.4}%">${hl?'<i class="hl" title="Beginn ziehen"></i>':''}${hr?'<i class="hr" title="Ende ziehen"></i>':''}</span>`).join('');
+}
+function endSel(pos,attr){
+  const e=pos.s+dur(cur,pos);
+  return `<select ${attr} aria-label="Dienstende">${timeOpts(mod(e))}</select>${e>1440?'<sup class="nd">+1</sup>':''}`;
+}
+const hrsTitle=pos=>{const b=brkOf(cur,pos);return `Präsenz ${fmt2(dur(cur,pos)/60)} h · Pause ${b} Min.${b?(cur.brk.paid?' (zählt als Arbeitszeit)':' (unbezahlt)'):''} · ${brkName()}`};
+const brkName=()=>(BRK[cur.brk.country]?BRK[cur.brk.country].name+', '+BRK[cur.brk.country].ref:'Eigene Regel');
+function lvlChip(pos){const c=catOf(cur,pos);if(c==='ext')return '<span class="lvl ext">extern</span>';const q=pct(cur,pos);return `<span class="lvl ${q*100+1e-6>=cur.lvl.full?'full':q*100+1e-6>=cur.lvl.part?'part':'low'}" title="${fmt2(netH(cur,pos))} h ÷ ${fmt1(dayBase(cur))} h Vollzeit-Tag"><b>${fmtPct(q)}</b> ${q*100+1e-6>=cur.lvl.full?'Vollzeit':q*100+1e-6>=cur.lvl.part?'Teilzeit':'Part Timer'}</span>`}
+function empOpts(sel){return EMP_KEYS.map(k=>`<option value="${k}" ${k===sel?'selected':''}>${esc(cur.emp[k].label)}</option>`).join('')}
+function rowHtml(d,pos){
+  return `<tr data-pos="${pos.id}" data-dep="${d.id}">
+   <td class="c-name"><input type="text" value="${esc(pos.t)}" data-f="t" aria-label="Position"></td>
+   <td class="c-emp"><select data-f="e" aria-label="Rolle">${empOpts(pos.e)}</select></td>
+   <td class="c-start"><select data-f="s" aria-label="Dienstbeginn">${timeOpts(pos.s)}</select></td>
+   <td class="c-end">${endSel(pos,'data-f="end"')}</td>
+   <td class="c-hrs" title="${hrsTitle(pos)}">${fmt2(netH(cur,pos))}</td>
+   <td class="c-lvl">${lvlChip(pos)}</td>
+   <td class="c-chk"><input type="checkbox" data-f="f" ${pos.f?'checked':''} ${pos.e==='ext'?'disabled':''} aria-label="FTE: Bedarf 7 Tage pro Woche" title="Angeklickt: Bedarf 7 Tage/Woche, hochgerechnet. Leer: 5-Tage-Woche."></td>
+   <td class="c-chk"><input type="checkbox" data-f="l" ${pos.l?'checked':''} aria-label="Spind benötigt" title="Spind benötigt"></td>
+   <td class="c-tl"><div class="tl"><span class="owl">${bandFor(d.id)}</span>${bars(pos)}</div></td>
+   <td class="c-act"><button class="icon-btn" data-act="dupPos" title="Position duplizieren" aria-label="Duplizieren">⧉</button><button class="icon-btn" data-act="delPos" title="Position entfernen" aria-label="Entfernen">×</button></td></tr>`;
+}
+function hkRow(d){
+  if(!(cur.hk.auto&&cur.hk.dep===d.id))return '';
+  const pos=hkPos(cur);
+  return `<tr class="auto" data-hkrow="1"><td class="c-name">Zimmermädchen (Rooms)<span class="badge">× ${hkCount(cur)}</span></td>
+  <td class="c-emp"><select data-hk="emp" aria-label="Rolle Zimmermädchen">${empOpts(cur.hk.emp)}</select></td>
+  <td class="c-start"><select data-hk="start" aria-label="Dienstbeginn Zimmermädchen">${timeOpts(pos.s)}</select></td>
+  <td class="c-end">${endSel(pos,'data-hk="end"')}</td><td class="c-hrs" title="${hrsTitle(pos)}">${fmt2(netH(cur,pos))}</td>
+  <td class="c-lvl">${lvlChip(pos)}</td>
+  <td class="c-chk"><input type="checkbox" data-hk="f" ${pos.f?'checked':''} ${pos.e==='ext'?'disabled':''} aria-label="FTE: Bedarf 7 Tage pro Woche"></td><td class="c-chk">✓</td>
+  <td class="c-tl"><div class="tl"><span class="owl">${bandFor(d.id)}</span>${bars(pos)}</div></td><td class="c-act" title="Anzahl aus Zimmern, Auslastung und Zimmern je MA (Parameter)"><button class="icon-btn" data-act="goParams" aria-label="Parameter öffnen">⚙</button></td></tr>`;
+}
+function covStrip(d){
+  const c=coverage({...cur,divs:[{id:'x',deps:[d]}]},'',false);const mx=Math.max(1,...c.map(x=>x.n));
+  return `<div class="cov" title="Interne Besetzung über den Tag">${c.map((x,i)=>`<i style="opacity:${x.n?0.15+0.85*x.n/mx:0.04}" title="${hhmm(TIMES[i])}: ${x.n} MA"></i>`).join('')}</div>`;
+}
+function deptStats(R){
+  return `<span>Heads<b>${fmt0(R.heads)}</b></span><span class="ideal">IDEAL<b>${fmt2(R.ideal)}</b></span><span>FTE<b>${fmt2(R.fte)}</b></span>${R.ext?`<span>Fremdfirma<b>${R.ext}</b></span>`:''}`;
+}
+function deptHtml(dv,d,R){
+  const r=R.deps[d.id],conf=ui.confirmDel==='dep:'+d.id;
+  const rows=d.pos.filter(p=>ui.showExt||p.e!=='ext').map(p=>rowHtml(d,p)).join('')+(ui.showExt||cur.hk.emp!=='ext'?hkRow(d):'');
+  return `<section class="dept" data-dep="${d.id}">
+   <div class="dept-h"><input class="dn" type="text" value="${esc(d.name)}" data-dname="${d.id}" aria-label="Abteilung">
+    <div class="dstats" data-dstats="${d.id}">${deptStats(r)}</div><span style="flex:1"></span>
+    <span class="band-info" data-band="${d.id}">${bandInfo(d.id)}</span><span data-gchip="${d.id}">${gapChip(d)}</span>
+    <label class="toggle" title="Öffnungszeiten im Zeitstrahl hinterlegen">Outlet <select data-doutlet="${d.id}"><option value="">–</option>${(cur.ops||[]).map(o=>`<option value="${o.id}" ${d.outlet===o.id?'selected':''}>${esc(o.o)}</option>`).join('')}</select></label></div>
+   <div class="scroll"><table class="sched"><thead><tr><th class="c-name">Position</th><th class="c-emp">Rolle</th><th class="c-start">Beginn</th><th class="c-end">Ende</th><th class="c-hrs" title="Arbeitsstunden laut Pausenregel des Projekts">Std</th><th class="c-lvl" title="Arbeitszeit ÷ Vollzeit-Tag">Ausmaß</th><th class="c-chk" title="Angeklickt: Bedarf 7 Tage/Woche, hochgerechnet. Leer: 5-Tage-Woche.">FTE</th><th class="c-chk">Spind</th>
+   <th class="c-tl"><div class="hours">${Array.from({length:24},(_,h)=>`<span>${h%3===0?String(h).padStart(2,'0'):''}</span>`).join('')}</div></th><th class="c-act"></th></tr>
+   ${outletOf(d)?`<tr class="orow" data-orow="${d.id}">${openRow(d)}</tr>`:''}
+   <tr><td colspan="8" style="font-size:10.5px;color:var(--ink-3)">Besetzung (intern)</td><td data-cov="${d.id}">${covStrip(d)}</td><td></td></tr></thead>
+   <tbody>${rows||`<tr><td colspan="10" style="color:var(--ink-3);padding:10px 8px">Noch keine Positionen. Mit „+ Position“ die erste Schicht anlegen.</td></tr>`}</tbody></table></div>
+   <div class="dept-f"><button class="btn" data-act="addPos" data-dep="${d.id}">+ Position</button><button class="btn ghost" data-act="sortDep" data-dep="${d.id}">Nach Beginn sortieren</button><span style="flex:1"></span>
+   ${conf?`<span class="confirm">Abteilung mit ${d.pos.length} Positionen löschen? <button class="btn danger" data-act="delDepYes" data-dep="${d.id}">Löschen</button><button class="btn ghost" data-act="cancelDel">Abbrechen</button></span>`:`<button class="btn danger" data-act="delDep" data-dep="${d.id}">Abteilung löschen</button>`}</div>
+  </section>`;
+}
+function renderSchedule(R){
+  const chips=`<div class="chips" role="group" aria-label="Bereich filtern"><button class="chip" data-div="" aria-pressed="${!ui.div}">Alle Bereiche</button>${cur.divs.map(dv=>`<button class="chip" data-div="${dv.id}" aria-pressed="${ui.div===dv.id}">${esc(dv.name)}</button>`).join('')}</div>`;
+  const tb=`<div class="toolbar">${chips}<span style="flex:1"></span><label class="toggle"><input type="checkbox" id="showExt" ${ui.showExt?'checked':''}> Fremdfirma anzeigen</label>
+   <div class="legend"><span><i class="sw m"></i>Management</span><span><i class="sw s"></i>Vollzeit</span><span><i class="sw p"></i>Teilzeit / Part Timer (errechnet)</span><span><i class="sw x"></i>Fremdfirma</span><span><i class="sw o"></i>Outlet geöffnet</span><span><i class="sw g"></i>Lücke (geöffnet, nicht besetzt)</span><label class="toggle">Öffnungszeiten für <select id="refDay" aria-label="Wochentag für Öffnungszeiten">${DAYS_L.map((n,j)=>`<option value="${j}" ${ui.refDay===j?'selected':''}>${n}</option>`).join('')}</select></label><span class="drag-hint">Balken ziehen verschiebt die Schicht, Enden ziehen ändert Beginn oder Ende.</span></div></div>`;
+  const body=cur.divs.filter(dv=>!ui.div||ui.div===dv.id).map(dv=>`<div class="div-h"><h2>${esc(dv.name)}</h2><span class="sum" data-divsum="${dv.id}">${divSum(R.divs[dv.id])}</span></div>
+    ${dv.deps.map(d=>deptHtml(dv,d,R)).join('')}
+    <div class="add-dept"><button class="btn ghost" data-act="addDep" data-div="${dv.id}">+ Abteilung in ${esc(dv.name)}</button></div>`).join('');
+  return tb+`<section class="panel overview" id="covOverview">${overviewHtml()}</section>`+body+`<div style="margin-top:22px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="text" id="newDivName" placeholder="Neuer Bereich, z. B. Retail" aria-label="Name des neuen Bereichs"><button class="btn" data-act="addDiv">+ Bereich anlegen</button></div>`;
+}
+function bandInfo(depId){
+  const [,d]=findDep(depId);if(!d||!d.outlet)return '';const o=(cur.ops||[]).find(x=>x.id===d.outlet);if(!o)return '';
+  const day=o.days[ui.refDay||0];return `${DAYS[ui.refDay||0]}: ${day.on?(day.w.length?day.w.map(fmtWin).join(' · '):(o.note||'ohne feste Zeiten')):'geschlossen'}`;
+}
+/* ---------- Abdeckung der Öffnungszeiten ---------- */
+const Q=15;
+function openSlots(o,day){const d=o.days[day],set=new Array(96).fill(false);if(!d.on)return set;
+  for(const w of d.w){const a=w[0],e=a+winLen(w);for(let t=a;t<e;t+=Q)set[(t%1440)/Q|0]=true}return set}
+function outletOf(d){return d&&d.outlet?(cur.ops||[]).find(x=>x.id===d.outlet):null}
+/* Lücken = Zeiten, in denen das Outlet geöffnet ist, aber niemand aus der Abteilung im Dienst ist */
+function gapsFor(d,day){
+  const o=outletOf(d);if(!o)return null;const open=openSlots(o,day);
+  const staff=deptPositions(cur,d);const out=[];let st=-1;
+  for(let i=0;i<=96;i++){
+    const gap=i<96&&open[i]&&!staff.some(p=>onDuty(cur,p,i*Q));
+    if(gap&&st<0)st=i;if(!gap&&st>=0){out.push([st*Q,i*Q]);st=-1}
+  }
+  return out;
+}
+const gapMin=g=>g.reduce((s,x)=>s+x[1]-x[0],0);
+const fmtDur=m=>`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')} h`;
+function gapChip(d){
+  const o=outletOf(d);if(!o)return '';
+  const g=gapsFor(d,ui.refDay),all=DAYS.map((_,j)=>gapsFor(d,j));const bad=all.filter(x=>x.length).length;
+  if(!o.days[ui.refDay].on)return `<span class="gchip off">${DAYS[ui.refDay]}: geschlossen</span>`;
+  if(!g.length)return `<span class="gchip ok" title="${esc(o.o)}: alle Öffnungszeiten am ${DAYS_L[ui.refDay]} besetzt${bad?` · Lücken an ${bad} anderen Tag(en)`:''}">✓ ${DAYS[ui.refDay]} abgedeckt${bad?` · ${bad} Tag(e) mit Lücken`:''}</span>`;
+  return `<span class="gchip gap" title="Nicht besetzt am ${DAYS_L[ui.refDay]}: ${g.map(x=>hhmm(x[0])+'–'+hhmm(x[1])).join(', ')}">⚠ ${DAYS[ui.refDay]}: ${g.length} Lücke${g.length>1?'n':''} · ${fmtDur(gapMin(g))}</span>`;
+}
+function openRow(d){
+  const o=outletOf(d);if(!o)return '';
+  const day=o.days[ui.refDay],g=gapsFor(d,ui.refDay);
+  const segs=day.on?day.w.flatMap(w=>{const a=w[0],e=a+winLen(w);return e>1440?[[a,1440],[0,e-1440]]:[[a,e]]}):[];
+  return `<td colspan="8" class="orow-l"><span>Öffnungszeiten ${esc(o.o)}</span><span class="dots">${DAYS.map((n,j)=>{const gg=gapsFor(d,j),on=o.days[j].on;return `<button class="dot ${!on?'off':gg.length?'gap':'ok'} ${j===ui.refDay?'sel':''}" data-act="setDay" data-day="${j}" title="${DAYS_L[j]}: ${!on?'geschlossen':gg.length?'Lücken '+gg.map(x=>hhmm(x[0])+'–'+hhmm(x[1])).join(', '):'abgedeckt'}">${n}</button>`}).join('')}</span></td>
+   <td><div class="otl2">${day.on?'':'<span class="closed-all">geschlossen</span>'}${segs.map(([a,b])=>`<span class="op" style="left:${a/14.4}%;width:${(b-a)/14.4}%"></span>`).join('')}${g.map(([a,b])=>`<span class="gp" style="left:${a/14.4}%;width:${(b-a)/14.4}%" title="nicht besetzt ${hhmm(a)}–${hhmm(b)}"></span>`).join('')}</div></td><td></td>`;
+}
+function overviewHtml(){
+  const rows=[];for(const dv of cur.divs)for(const d of dv.deps){const o=outletOf(d);if(o)rows.push([dv,d,o])}
+  if(!rows.length)return `<div class="ov-empty">Abteilungen im Kopf über „Outlet“ einem Outlet zuordnen, dann prüft das Tool hier, ob alle Öffnungszeiten besetzt sind.</div>`;
+  let tot=0;const body=rows.map(([dv,d,o])=>{const cells=DAYS.map((n,j)=>{const on=o.days[j].on,g=on?gapsFor(d,j):[];if(g.length)tot++;
+      return `<td><button class="ovc ${!on?'off':g.length?'gap':'ok'} ${j===ui.refDay?'sel':''}" data-act="ovJump" data-div="${dv.id}" data-day="${j}" title="${esc(o.o)} · ${DAYS_L[j]}: ${!on?'geschlossen':g.length?'nicht besetzt '+g.map(x=>hhmm(x[0])+'–'+hhmm(x[1])).join(', '):'alle Öffnungszeiten besetzt'}">${!on?'–':g.length?'−'+fmtDur(gapMin(g)).replace(' h',''):'✓'}</button></td>`}).join('');
+    return `<tr><td><b>${esc(o.o)}</b><span class="ov-dep">${esc(dv.name)} · ${esc(d.name)}</span></td>${cells}</tr>`}).join('');
+  return `<div class="ov-h"><h3>Abdeckung der Öffnungszeiten</h3><span class="${tot?'gchip gap':'gchip ok'}">${tot?`⚠ ${tot} Tag(e) mit Lücken`:'✓ Alle Öffnungszeiten besetzt'}</span></div>
+   <div class="scroll"><table class="ovt"><thead><tr><th>Outlet · Abteilung</th>${DAYS.map(n=>`<th>${n}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>
+   <p class="hint" style="margin:8px 0 0">Geprüft wird in 15-Minuten-Schritten, ob während der Öffnung mindestens eine Schicht der Abteilung läuft (inkl. Fremdfirma). „−1:30“ = 1 Std 30 Min nicht besetzt. Klick auf einen Tag springt zur Abteilung.</p>`;
+}
+function divSum(D){return `Heads <b>${fmt0(D.heads)}</b> · IDEAL <b>${fmt1(D.ideal)}</b> · FTE <b>${fmt1(D.fte)}</b>`}
+function findDep(id){for(const dv of cur.divs){const d=dv.deps.find(x=>x.id===id);if(d)return [dv,d]}return []}
+function refreshDept(depId){
+  const R=calc(cur);const [dv,d]=findDep(depId);if(!d)return;
+  const st=document.querySelector(`[data-dstats="${depId}"]`);if(st)st.innerHTML=deptStats(R.deps[depId]);
+  const cv=document.querySelector(`[data-cov="${depId}"]`);if(cv)cv.innerHTML=covStrip(d);
+  const ds=document.querySelector(`[data-divsum="${dv.id}"]`);if(ds)ds.innerHTML=divSum(R.divs[dv.id]);
+  const or=document.querySelector(`[data-orow="${depId}"]`);if(or)or.innerHTML=openRow(d);
+  const gc=document.querySelector(`[data-gchip="${depId}"]`);if(gc)gc.innerHTML=gapChip(d);
+  const ov=$('#covOverview');if(ov)ov.innerHTML=overviewHtml();
+  const k=$('#kpis');if(k)k.innerHTML=renderKpis(R);
+}
+function refreshRow(tr,pos){
+  const isHk=!!tr.dataset.hkrow;
+  const ss=tr.querySelector('.c-start select');if(ss)ss.value=String(pos.s);
+  tr.querySelector('.c-end').innerHTML=endSel(pos,isHk?'data-hk="end"':'data-f="end"');
+  const h=tr.querySelector('.c-hrs');h.textContent=fmt2(netH(cur,pos));h.title=hrsTitle(pos);
+  const lv=tr.querySelector('.c-lvl');if(lv)lv.innerHTML=lvlChip(pos);
+  const tl=tr.querySelector('.tl');tl.innerHTML=`<span class="owl">${bandFor(tr.dataset.dep||cur.hk.dep)}</span>`+bars(pos);
+}
+/* Zeile → bearbeitbares Objekt (Position oder automatische Zimmermädchen-Schicht) */
+function rowTarget(tr){
+  if(tr.dataset.hkrow){const p=hkPos(cur);return {pos:p,depId:cur.hk.dep,apply:(s,d)=>{cur.hk.start=s;cur.hk.d=d;Object.assign(p,{s,d})}}}
+  const [,d]=findDep(tr.dataset.dep);if(!d)return null;const pos=d.pos.find(x=>x.id===tr.dataset.pos);if(!pos)return null;
+  return {pos,depId:d.id,apply:(s,dd)=>{pos.s=s;pos.d=dd}};
+}
+
+/* ---------- drag on timeline ---------- */
+let drag=null;
+document.addEventListener('pointerdown',e=>{
+  const b=e.target.closest('.tl .b');if(!b||!cur||e.button>0)return;
+  const tl=b.closest('.tl'),tr=tl.closest('tr');const tg=rowTarget(tr);if(!tg)return;
+  const mode=e.target.classList.contains('hl')?'start':e.target.classList.contains('hr')?'end':'move';
+  drag={tl,tr,tg,mode,x0:e.clientX,w:tl.getBoundingClientRect().width,s0:tg.pos.s,d0:dur(cur,tg.pos),moved:false};
+  try{tl.setPointerCapture(e.pointerId)}catch(_){}
+  tl.classList.add('dragging');document.body.classList.add('is-dragging');e.preventDefault();
+  showDragTip();
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  const delta=Math.round((e.clientX-drag.x0)/drag.w*1440/SNAP)*SNAP;
+  let s=drag.s0,d=drag.d0;
+  if(drag.mode==='move')s=mod(drag.s0+delta);
+  else if(drag.mode==='end')d=Math.min(1440,Math.max(SNAP,drag.d0+delta));
+  else{d=Math.min(1440,Math.max(SNAP,drag.d0-delta));s=mod(drag.s0+(drag.d0-d))}
+  if(s===drag.tg.pos.s&&d===dur(cur,drag.tg.pos))return;
+  drag.moved=true;drag.tg.apply(s,d);refreshRow(drag.tr,drag.tg.pos);drag.tr.querySelector('.tl').classList.add('dragging');showDragTip();
+});
+function endDrag(){
+  if(!drag)return;const g=drag;drag=null;
+  g.tr.querySelector('.tl').classList.remove('dragging');document.body.classList.remove('is-dragging');
+  const tip=g.tr.querySelector('.dtip');if(tip)tip.remove();
+  if(g.moved){touch();refreshDept(g.tg.depId);if(g.tr.dataset.hkrow&&ui.tab==='dienstplan'){}}
+}
+document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+function showDragTip(){
+  if(!drag)return;const pos=drag.tg.pos,tl=drag.tr.querySelector('.tl');
+  let tip=tl.querySelector('.dtip');if(!tip){tip=document.createElement('span');tip.className='dtip';tl.appendChild(tip)}
+  const e=pos.s+dur(cur,pos);
+  tip.textContent=`${hhmm(pos.s)} – ${hhmm(e)}${e>1440?' (+1)':''} · ${fmt2(netH(cur,pos))} h Arbeitszeit · ${brkOf(cur,pos)} Min. Pause`;
+  tip.style.left=Math.min(80,Math.max(10,(pos.s+dur(cur,pos)/2)%1440/14.4))+'%';
+}
+
+/* ---------- parameters ---------- */
+function renderParams(R){
+  const y=cur.year,wd=workDays(cur),n=hkCount(cur);
+  const deps=cur.divs.flatMap(dv=>dv.deps.map(d=>[d.id,dv.name+' · '+d.name]));
+  return `<div class="pgrid">
+  <div class="panel"><h3>Rollen und Beschäftigungsausmaß</h3><p class="hint">Das Ausmaß jeder Position errechnet sich aus ihrer Dienstzeit: Arbeitszeit pro Tag ÷ ${fmt1(dayBase(cur))} h (FTE-Basis ${fmt0(cur.year.fteWeek)} Std ÷ 5 Tage). Es gewichtet die Position im IDEAL, z. B. 6 h = 75 %.</p>
+   <div class="fields" style="margin-bottom:14px"><label class="field"><span>Vollzeit ab %</span><input type="number" min="1" max="200" step="5" value="${cur.lvl.full}" data-lvl="full"></label><label class="field"><span>Teilzeit ab % (darunter Part Timer)</span><input type="number" min="0" max="200" step="5" value="${cur.lvl.part}" data-lvl="part"></label></div>
+   <div class="formula" style="margin:0 0 14px">Beispiele: ${[8,7,6,5,4,3].map(h=>{const q=h/dayBase(cur);return `${h} h → ${fmtPct(q)} ${q*100+1e-6>=cur.lvl.full?'Vollzeit':q*100+1e-6>=cur.lvl.part?'Teilzeit':'Part Timer'}`}).join(' · ')}</div>
+   <div class="scroll"><table class="ptable"><thead><tr><th>Rolle</th><th style="text-align:right">Standard Std/Tag</th><th style="text-align:right">Pause</th><th style="text-align:right">Schicht</th></tr></thead><tbody>
+   ${EMP_KEYS.map(k=>{const e=cur.emp[k];return `<tr><td><input type="text" value="${esc(e.label)}" data-emp="${k}" data-ef="label" aria-label="Bezeichnung"></td>
+   <td style="text-align:right"><input type="number" step="0.25" min="0" value="${e.net}" data-emp="${k}" data-ef="net" aria-label="Standard-Arbeitszeit"></td>
+   <td class="out" data-pbrk="${k}">${breakMin(cur,defDur(cur,k))} Min.</td><td class="out" data-pres="${k}">${fmt2(defDur(cur,k)/60)} h</td></tr>`}).join('')}</tbody></table></div>
+   <p class="hint" style="margin:12px 0 0">Die Standard-Arbeitszeit gilt für neu angelegte Positionen. Ob eine Position 5 oder 7 Tage pro Woche besetzt sein muss, legt der FTE-Haken je Position fest.</p></div>
+
+  <div class="panel" id="brkPanel">${brkPanel()}</div>
+
+  <div class="panel"><h3>Jahresparameter</h3><p class="hint">Urlaubs-, Feier-, Krankheits- und freie Tage stehen im Projektkopf. Hier stehen Betriebstage und die Basis für FTE.</p>
+   <div class="fields">
+   ${[['ops','Betriebstage / Jahr'],['weeks','Wochen / Jahr'],['fteWeek','FTE-Basis Std/Woche']].map(([k,l])=>`<label class="field"><span>${l}</span><input type="number" min="0" step="1" value="${y[k]}" data-year="${k}"></label>`).join('')}
+   </div>
+   <div class="formula" id="wdFormula">Arbeitstage je Mitarbeiter = ${wdText(y)} = <b>${wd}</b><br>Hochrechnungsfaktor für 7-Tage-Positionen = ${y.ops} ÷ ${wd} = <b>${wd>0?fmt2(y.ops/wd):'–'}</b></div>
+  </div>
+
+  <div class="panel"><h3>Housekeeping</h3><p class="hint">Zimmermädchen werden aus Zimmeranzahl, Auslastung und Zimmern je Mitarbeiter errechnet und als Schichten in den Dienstplan gesetzt.</p>
+   <label class="toggle" style="margin-bottom:12px"><input type="checkbox" id="hkAuto" ${cur.hk.auto?'checked':''}> Zimmermädchen automatisch berechnen</label>
+   <div class="fields">
+    <label class="field"><span>Zimmer</span><input type="number" min="0" step="1" value="${cur.hk.rooms}" data-hk="rooms"></label>
+    <label class="field"><span>Ø Auslastung %</span><input type="number" min="0" max="100" step="1" value="${Math.round(cur.hk.occ*100)}" data-hk="occ"></label>
+    <label class="field"><span>Zimmer je MA / Tag</span><input type="number" min="1" step="1" value="${cur.hk.per}" data-hk="per"></label>
+    <label class="field"><span>Rolle</span><select data-hk="emp">${empOpts(cur.hk.emp)}</select></label>
+    <label class="field"><span>Dienstbeginn</span><select data-hk="start">${timeOpts(+cur.hk.start)}</select></label>
+   </div>
+   <label class="field" style="margin-top:12px"><span>Abteilung im Dienstplan</span><select data-hk="dep">${deps.map(([id,l])=>`<option value="${id}" ${cur.hk.dep===id?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
+   <div class="formula" id="hkFormula">${hkFormula()}</div>
+  </div>
+
+  <div class="panel outlets"><div class="chart-h"><div><h3>F&amp;B-Öffnungszeiten</h3><p class="hint" style="margin:0">Öffnung und Schließung je Outlet und Wochentag, mehrere Zeitfenster pro Tag möglich. Schließzeit vor der Öffnungszeit bedeutet: schließt am Folgetag. Ein neues Outlet legt im Dienstplan automatisch einen gleichnamigen Bereich an.</p></div>
+   <button class="btn" data-act="addOp">+ Outlet</button></div>
+   ${cur.ops.length?cur.ops.map(outletCard).join(''):'<p class="hint">Noch kein Outlet angelegt.</p>'}</div>
+  </div>`;
+}
+function staffLine(o){
+  const R=calc(cur);let h=0,id=0,n=0;for(const dv of cur.divs)for(const d of dv.deps)if(d.outlet===o.id){const r=R.deps[d.id];h+=r.heads;id+=r.ideal;n+=d.pos.length}
+  return n?` · <b class="num">${fmt0(h)}</b> Heads · IDEAL <b class="num">${fmt1(id)}</b>`:' · noch keine Positionen';
+}
+function outletCard(o,i){
+  const used=cur.divs.flatMap(dv=>dv.deps.filter(d=>d.outlet===o.id).map(d=>dv.name+' · '+d.name));
+  const conf=ui.confirmDel==='op:'+o.id;
+  return `<div class="outlet">
+   <div class="ol-h"><input type="text" class="ol-name" value="${esc(o.o)}" data-oo="${i}" data-of="o" aria-label="Name des Outlets">
+    <input type="text" class="ol-note" value="${esc(o.note||'')}" placeholder="Hinweis, z. B. laut Buchung" data-oo="${i}" data-of="note" aria-label="Hinweis">
+    <span class="ol-sum"><b class="num">${fmt1(weekHours(o))}</b> Std / Woche${used.length?` · im Dienstplan: ${esc(used.join(', '))}`:''}${staffLine(o)}</span>
+    ${used.length?`<button class="btn" data-act="goOutlet" data-id="${o.id}">Mitarbeiter eintragen →</button>`:`<button class="btn" data-act="mkDiv" data-id="${o.id}">Bereich im Dienstplan anlegen</button>`}
+    ${conf?`<span class="confirm">Outlet löschen? Der Bereich im Dienstplan bleibt erhalten. <button class="btn danger" data-act="delOpYes" data-oo="${i}">Löschen</button><button class="btn ghost" data-act="cancelDel">Abbrechen</button></span>`:`<button class="btn danger" data-act="delOp" data-oo="${i}">Löschen</button>`}</div>
+   <div class="scroll"><table class="otable"><thead><tr><th>Tag</th><th>Öffnung – Schließung</th><th class="c-tl"><div class="hours">${Array.from({length:24},(_,h)=>`<span>${h%3===0?String(h).padStart(2,'0'):''}</span>`).join('')}</div></th><th style="text-align:right">Std</th></tr></thead><tbody>
+   ${o.days.map((d,j)=>`<tr class="${d.on?'':'closed'}"><td class="od"><label class="toggle" title="${DAYS_L[j]} geöffnet"><input type="checkbox" data-oo="${i}" data-od="${j}" data-of="on" ${d.on?'checked':''}> ${DAYS[j]}</label></td>
+    <td class="ow">${d.on?d.w.map((w,k)=>`<span class="win"><select data-oo="${i}" data-od="${j}" data-ow="${k}" data-of="a" aria-label="${DAYS_L[j]} Öffnung">${timeOpts(w[0])}</select><span class="dash">–</span><select data-oo="${i}" data-od="${j}" data-ow="${k}" data-of="b" aria-label="${DAYS_L[j]} Schließung">${closeOpts(w[1])}</select>${w[1]<=w[0]?'<sup class="nd">+1</sup>':''}<button class="icon-btn" data-act="delWin" data-oo="${i}" data-od="${j}" data-ow="${k}" aria-label="Zeitfenster entfernen">×</button></span>`).join('')+(d.w.length?'':'<span class="muted">ohne feste Zeiten</span>')+`<button class="btn ghost sm" data-act="addWin" data-oo="${i}" data-od="${j}">+ Zeitfenster</button>`:'<span class="muted">geschlossen</span>'}</td>
+    <td class="c-tl"><div class="otl">${d.on?d.w.flatMap(w=>{const a=w[0],e=a+winLen(w);return e>1440?[[a,1440],[0,e-1440]]:[[a,e]]}).map(([a,b])=>`<span class="ob" style="left:${a/14.4}%;width:${(b-a)/14.4}%"></span>`).join(''):''}</div></td>
+    <td class="oh num">${d.on?fmt1(dayHours(d)):'–'}</td></tr>`).join('')}
+   </tbody></table></div>
+   <div class="ol-f"><button class="btn ghost" data-act="copyMon" data-oo="${i}">Montag auf alle Tage übertragen</button><button class="btn ghost" data-act="copyWd" data-oo="${i}">Montag auf Di – Fr übertragen</button></div>
+  </div>`;
+}
+function brkPanel(){
+  const b=cur.brk,pr=BRK[b.country];
+  return `<h3>Pausenregelung</h3><p class="hint">Die Pause wird nur abgezogen, wenn die Arbeitszeit die gesetzliche Schwelle überschreitet. Kollektivverträge oder Betriebsvereinbarungen können längere Pausen vorsehen; dann die Werte anpassen.</p>
+   <div class="fields" style="margin-bottom:12px"><label class="field"><span>Land</span><select id="brkCountry2">${countryOpts(b.country)}</select></label>
+   <label class="field"><span>Schwelle</span><select id="brkOp"><option value=">" ${b.op==='>'?'selected':''}>mehr als</option><option value=">=" ${b.op==='>='?'selected':''}>ab (mindestens)</option></select></label></div>
+   <div class="scroll"><table class="ptable"><thead><tr><th>Arbeitszeit ${b.op==='>='?'ab':'mehr als'}</th><th>Pause</th><th></th></tr></thead><tbody>
+   ${b.tiers.map((t,i)=>`<tr><td><input type="number" min="0" step="0.5" value="${t.h}" data-tier="${i}" data-tf="h" aria-label="Schwelle Stunden"> Std</td><td><input type="number" min="0" step="5" value="${t.m}" data-tier="${i}" data-tf="m" aria-label="Pause Minuten"> Min.</td><td style="width:30px"><button class="icon-btn" data-act="delTier" data-i="${i}" aria-label="Stufe entfernen">×</button></td></tr>`).join('')}
+   </tbody></table></div><button class="btn" style="margin-top:8px" data-act="addTier">+ Stufe</button>
+   <label class="toggle" style="margin-top:12px"><input type="checkbox" id="brkPaid" ${b.paid?'checked':''}> Pause zählt als Arbeitszeit (bezahlt)</label>
+   <div class="formula">${pr?`<b style="font-size:12.5px">${pr.ref}</b> · ${pr.note}`:'Eigene Regel, angepasst an Kollektivvertrag oder Betriebsvereinbarung.'}<br>Beispiele: ${[[6,0],[6,30],[8,30],[10,0]].map(([h,m])=>{const P=h*60+m;const br=breakMin(cur,P);return `${h}:${String(m).padStart(2,'0')} h Schicht → ${br} Min. Pause, ${fmt2(cur.brk.paid?P/60:(P-br)/60)} h Arbeitszeit`}).join(' · ')}</div>`;
+}
+const hkFormula=()=>`${fmt0(cur.hk.rooms)} Zimmer × ${Math.round(cur.hk.occ*100)} % ÷ ${cur.hk.per} = ${fmt2(cur.hk.rooms*cur.hk.occ/cur.hk.per)} → <b>${hkCount(cur)}</b> Zimmermädchen pro Tag`;
+
+/* ---------- results ---------- */
+function renderResults(R){
+  const T=R.tot;
+  const covSel=`<select id="covDiv" aria-label="Bereich"><option value="">Alle Bereiche</option>${cur.divs.map(dv=>`<option value="${dv.id}" ${ui.covDiv===dv.id?'selected':''}>${esc(dv.name)}</option>`).join('')}</select>`;
+  let mx=0;for(const dv of cur.divs)for(const d of dv.deps){const r=R.deps[d.id];mx=Math.max(mx,r.ideal,r.fte)}
+  const rows=cur.divs.map(dv=>{const D=R.divs[dv.id];
+    return `<tr class="dv"><td>${esc(dv.name)}</td><td class="n">${fmt0(D.heads)}</td><td class="n">${fmt2(D.d5)}</td><td class="n">${fmt2(D.d7)}</td><td class="n ideal">${fmt2(D.ideal)}</td><td class="n">${fmt0(D.hrs)}</td><td class="n">${fmt2(D.fte)}</td><td class="n">${fmt0(D.lock)}</td><td></td></tr>`+
+    dv.deps.map(d=>{const r=R.deps[d.id];return `<tr><td>${esc(d.name)}</td><td>${fmt0(r.heads)}</td><td>${fmt2(r.d5)}</td><td>${fmt2(r.d7)}</td><td class="ideal">${fmt2(r.ideal)}</td><td>${fmt0(r.hrs)}</td><td>${fmt2(r.fte)}</td><td>${fmt0(r.lock)}</td>
+     <td class="bars" title="IDEAL ${fmt2(r.ideal)} · FTE ${fmt2(r.fte)}"><div class="tw"><i class="a" style="width:${mx?r.ideal/mx*100:0}%"></i><i class="b" style="width:${mx?r.fte/mx*100:0}%"></i></div></td></tr>`}).join('')}).join('');
+  return `<div class="olive"><h3>Zusammensetzung Tagesdienstplan</h3><div class="mix">
+   ${CATS.map(k=>`<div><div class="v">${T.byEmp[k]}</div><div class="l">${CAT_L[k]}${k==='mgnt'||k==='ext'?'':' (errechnet)'}</div></div>`).join('')}
+   <div><div class="v">${R.wd}</div><div class="l">Arbeitstage je MA / Jahr</div></div></div></div>
+  <div class="panel" style="margin-bottom:22px"><div class="chart-h"><div><h3>Besetzung im Tagesverlauf</h3><span class="hint" style="margin:0">Anwesende Mitarbeiter je 30 Minuten laut Tagesdienstplan</span></div>
+   <div class="proj-ctl">${covSel}<label class="toggle"><input type="checkbox" id="covExt" ${ui.covExt?'checked':''}> inkl. Fremdfirma</label></div></div>
+   <div class="chart-wrap"><svg id="covChart" viewBox="0 0 960 280" role="img" aria-label="Besetzung im Tagesverlauf"></svg><div class="tip" id="covTip" hidden></div></div></div>
+  <div class="panel"><div class="chart-h"><h3>Jahresbedarf je Abteilung</h3><div class="legend"><span><i class="sw m"></i>IDEAL</span><span><i class="sw s"></i>FTE</span></div></div>
+   <div class="scroll"><table class="res"><thead><tr><th>Abteilung</th><th>Heads</th><th>5-Tage</th><th>7-Tage</th><th>IDEAL</th><th>Std / Jahr</th><th>FTE</th><th>Spinde</th><th style="text-align:left">IDEAL / FTE</th></tr></thead>
+   <tbody>${rows}<tr class="tot"><td>Gesamt</td><td>${fmt0(T.heads)}</td><td>${fmt2(T.d5)}</td><td>${fmt2(T.d7)}</td><td class="ideal">${fmt2(T.ideal)}</td><td>${fmt0(T.hrs)}</td><td>${fmt2(T.fte)}</td><td>${fmt0(T.lock)}</td><td></td></tr></tbody></table></div>
+   <p class="hint" style="margin-top:12px">5-Tage und 7-Tage sind gewichtete Köpfe pro Tag (Teilzeit 0,5 · Part Timer 0,2), getrennt nach FTE-Haken.</p></div>`;
+}
+function drawCov(){
+  const svg=$('#covChart');if(!svg)return;
+  const c=coverage(cur,ui.covDiv,ui.covExt);
+  const W=960,H=280,L=40,Rr=14,Tp=22,B=30,pw=W-L-Rr,ph=H-Tp-B;
+  const mx=Math.max(1,...c.map(x=>x.n));const step=mx<=10?2:mx<=25?5:mx<=60?10:mx<=150?25:50;const top=Math.ceil(mx/step)*step;
+  const X=i=>L+i*pw/48,Y=v=>Tp+ph-(v/top)*ph;
+  let g='';
+  for(let v=0;v<=top;v+=step)g+=`<line x1="${L}" x2="${W-Rr}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--hair)" stroke-width="1"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--ink-3)" font-family="Jost,Futura,sans-serif">${v}</text>`;
+  for(let h=0;h<=24;h+=3)g+=`<text x="${X(h*2)}" y="${H-10}" text-anchor="${h===0?'start':h===24?'end':'middle'}" font-size="11" fill="var(--ink-3)" font-family="Jost,Futura,sans-serif">${String(h).padStart(2,'0')}:00</text>`;
+  let d=`M${X(0)},${Y(0)}`;c.forEach((x,i)=>{d+=` L${X(i)},${Y(x.n)} L${X(i+1)},${Y(x.n)}`});d+=` L${X(48)},${Y(0)} Z`;
+  let line='';c.forEach((x,i)=>{line+=(i?` L${X(i)},${Y(x.n)}`:`M${X(0)},${Y(x.n)}`)+` L${X(i+1)},${Y(x.n)}`});
+  let pk=0;c.forEach((x,i)=>{if(x.n>c[pk].n)pk=i});
+  const px=(X(pk)+X(pk+1))/2,py=Y(c[pk].n);
+  g+=`<path d="${d}" fill="var(--terra)" fill-opacity=".18"/><path d="${line}" fill="none" stroke="var(--terra)" stroke-width="2" stroke-linejoin="round"/>`;
+  g+=`<circle cx="${px}" cy="${py}" r="4" fill="var(--terra)" stroke="var(--surface)" stroke-width="2"/><text x="${Math.min(Math.max(px,L+60),W-70)}" y="${py-9}" text-anchor="middle" font-size="12" fill="var(--ink)" font-family="Montserrat,sans-serif" font-weight="600">Spitze ${c[pk].n} MA · ${hhmm(TIMES[pk])}</text>`;
+  g+=`<line id="covCross" x1="0" x2="0" y1="${Tp}" y2="${Tp+ph}" stroke="var(--ink-3)" stroke-width="1" visibility="hidden"/><rect id="covHit" x="${L}" y="${Tp}" width="${pw}" height="${ph}" fill="transparent"/>`;
+  svg.innerHTML=g;
+  const hit=svg.querySelector('#covHit'),tip=$('#covTip'),cross=svg.querySelector('#covCross');
+  hit.addEventListener('pointermove',ev=>{const r=svg.getBoundingClientRect();const sx=(ev.clientX-r.left)/r.width*W;let i=Math.floor((sx-L)/pw*48);i=Math.max(0,Math.min(47,i));const x=c[i];
+    cross.setAttribute('x1',X(i)+pw/96);cross.setAttribute('x2',X(i)+pw/96);cross.setAttribute('visibility','visible');
+    tip.hidden=false;tip.style.left=((X(i)+pw/96)/W*r.width)+'px';tip.style.top=(Y(x.n)/H*r.height)+'px';
+    tip.innerHTML=`${hhmm(TIMES[i])} – ${hhmm(TIMES[i]+30)}<br><b>${x.n}</b> MA anwesend<br>${CATS.filter(k=>x[k]).map(k=>CAT_L[k]+' '+x[k]).join(' · ')}`});
+  hit.addEventListener('pointerleave',()=>{tip.hidden=true;cross.setAttribute('visibility','hidden')});
+}
+
+/* ---------- method ---------- */
+function renderMethod(R){
+  const y=cur.year,wd=R.wd;
+  return `<div class="method">
+  <section><h3>Grundidee</h3><p>Der Tagesdienstplan beschreibt einen typischen Betriebstag: welche Position wann im Dienst ist. Daraus rechnet das Tool den Personalbedarf für ein ganzes Jahr hoch, auf zwei Wegen: über Arbeitstage (IDEAL) und über Arbeitsstunden (FTE).</p></section>
+  <section><h3>Schichten und Pausen</h3><p>Beginn und Ende jeder Schicht lassen sich im Zeitstrahl ziehen oder über die Auswahlfelder setzen (15-Minuten-Raster).</p><p>Pausenregel: <code>${brkName()}</code>. Eine Pause wird nur abgezogen, wenn die Arbeitszeit die gesetzliche Schwelle überschreitet${cur.brk.paid?'; sie zählt hier als Arbeitszeit':''}. Stufen: ${cur.brk.tiers.map(t=>`${cur.brk.op==='>='?'ab':'mehr als'} ${fmt1(t.h)} Std → ${t.m} Min.`).join(' · ')}.</p></section>
+  <section><h3>FTE-Haken je Position</h3><p>Leer: Die Position ist an 5 Tagen pro Woche besetzt und zählt 1 : 1, ohne Vertretung (typisch Management und Verwaltung).</p><p>Angeklickt: Die Position muss an 7 Tagen pro Woche besetzt sein. Der Bedarf wird über die Arbeitstage hochgerechnet, inklusive Vertretung für Urlaub, Frei, Feiertage und Krankheit.</p></section>
+  <section><h3>Heads</h3><p>Anzahl der intern besetzten Schichten pro Tag. Fremdfirmen (z. B. Zimmerreinigung, Stewarding) zählen nicht mit: <code>${fmt0(R.tot.heads)} Heads</code></p></section>
+  <section><h3>IDEAL · Jahresbedarf über Arbeitstage</h3><ol>
+   <li>Jede interne Position zählt mit ihrem Beschäftigungsausmaß: Arbeitszeit pro Tag ÷ <code>${fmt1(dayBase(cur))} h</code> (z. B. 8 h = 100 % Vollzeit, 6 h = 75 % Teilzeit, 3 h = 37,5 % Part Timer). Vollzeit ab ${cur.lvl.full} %, Teilzeit ab ${cur.lvl.part} %, darunter Part Timer.</li>
+   <li>Arbeitstage je Mitarbeiter = Betriebstage − Feiertage − Krankheit − freie Tage − Urlaub: <code>${wdText(y)} = ${wd}</code></li>
+   <li>5-Tage-Positionen zählen mit ihrem Wert: <code>${fmt2(R.tot.d5)}</code></li>
+   <li>7-Tage-Positionen = Wert × ${y.ops} Betriebstage ÷ ${wd} Arbeitstage (Faktor <code>${wd?fmt2(y.ops/wd):'–'}</code>): <code>${fmt2(R.tot.d7)} × ${wd?fmt2(y.ops/wd):'–'} = ${wd?fmt2(R.tot.d7*y.ops/wd):'–'}</code></li>
+   <li>IDEAL = Summe aller Abteilungen: <code>${fmt2(R.tot.ideal)}</code></li></ol></section>
+  <section><h3>FTE · Jahresbedarf über Stunden</h3><ol>
+   <li>Stunden je Position und Woche = Arbeitsstunden der Schicht (nach Pausenregel) × 5 oder 7 Tage (FTE-Haken).</li>
+   <li>Stunden je Jahr = Wochenstunden × ${y.weeks} Wochen.</li>
+   <li>FTE = Jahresstunden ÷ (${y.fteWeek} Std × ${y.weeks} Wochen = ${fmt0(y.fteWeek*y.weeks)} Std): <code>${fmt2(R.tot.fte)}</code></li></ol>
+   <p>FTE berücksichtigt keine Abwesenheiten. Die Differenz zu IDEAL zeigt, wie viel Puffer für Urlaub, Frei und Krankheit nötig ist.</p></section>
+  <section><h3>Spinde</h3><p>Alle Positionen mit Spind-Haken, also interne Mitarbeiter ohne Executive-Team plus Fremdfirmen: <code>${fmt0(R.tot.lock)}</code></p></section>
+  <section><h3>Housekeeping</h3><p>Zimmermädchen = Zimmer × Auslastung ÷ Zimmer je Mitarbeiter, aufgerundet: <code>${cur.hk.rooms} × ${Math.round(cur.hk.occ*100)} % ÷ ${cur.hk.per} → ${hkCount(cur)}</code>${cur.hk.auto?'':' (derzeit ausgeschaltet)'}</p></section>
+  </div>`;
+}
+
+/* ---------- new project dialog ---------- */
+function newDlgWd(){const g=k=>+($('#np-'+k).value)||0;const wd=g('ops')-g('ph')-g('sick')-g('off')-g('hol');$('#npWd').innerHTML=`Arbeitstage je Mitarbeiter = ${g('ops')} − ${g('ph')} − ${g('sick')} − ${g('off')} − ${g('hol')} = <b>${wd}</b>`}
+function openNew(){$('#newMenu').hidden=false;$('#np-name').value='';newDlgWd();$('#np-name').focus()}
+function createFromDlg(){
+  const g=k=>$('#np-'+k).value;
+  const tpl=document.querySelector('input[name="np-base"]:checked').value==='tpl';
+  addProject(newProject(tpl,{country:g('country'),name:g('name').trim()||undefined,hol:g('hol'),ph:g('ph'),sick:g('sick'),off:g('off'),ops:g('ops'),rooms:g('rooms')}));
+  toast('Projekt angelegt');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button');if(!t)return;
+  if(t.dataset.tab){ui.tab=t.dataset.tab;try{history.replaceState(null,'','#'+ui.tab)}catch(_){}render();return}
+  if(t.classList.contains('chip')){ui.div=t.dataset.div;renderView();return}
+  const a=t.dataset.act;if(!a)return;
+  if(a==='openNew')return openNew();
+  if(a==='import')return $('#fileImport').click();
+  if(!cur)return;
+  if(a==='setDay'){ui.refDay=+t.dataset.day;renderView();return}
+  if(a==='ovJump'){ui.refDay=+t.dataset.day;ui.div=t.dataset.div;renderView();return}
+  if(a==='goParams'){ui.tab='parameter';render();return}
+  if(a==='cancelDel'){ui.confirmDel=null;renderView();return}
+  if(a==='addTier'){const l=cur.brk.tiers[cur.brk.tiers.length-1];cur.brk.tiers.push({h:l?l.h+3:6,m:l?l.m+15:30});cur.brk.country='custom';touch();render();return}
+  if(a==='delTier'){cur.brk.tiers.splice(+t.dataset.i,1);cur.brk.country='custom';touch();render();return}
+  if(a==='addOp'){
+    const used=new Set(cur.ops.map(o=>o.o));let n=1,name='Neues Outlet';while(used.has(name))name='Neues Outlet '+(++n);
+    const o={id:uid(),o:name,note:'',days:DAYS.map(()=>({on:1,w:[[660,1320]]}))};cur.ops.push(o);
+    /* passender Bereich mit gleichnamiger Abteilung im Dienstplan, mit dem Outlet verknüpft */
+    cur.divs.push({id:uid(),name,outlet:o.id,deps:[{id:uid(),name,outlet:o.id,pos:[]}]});
+    touch();renderView();refreshKpis();toast('Outlet und Bereich „'+name+'“ im Dienstplan angelegt');
+    const inp=document.querySelector(`.outlet:last-of-type .ol-name`);if(inp){inp.focus();inp.select()}return}
+  if(a==='mkDiv'){const o=cur.ops.find(x=>x.id===t.dataset.id);cur.divs.push({id:uid(),name:o.o,outlet:o.id,deps:[{id:uid(),name:o.o,outlet:o.id,pos:[]}]});touch();renderView();toast('Bereich „'+o.o+'“ im Dienstplan angelegt');return}
+  if(a==='goOutlet'){const dv=cur.divs.find(x=>x.outlet===t.dataset.id)||cur.divs.find(x=>x.deps.some(d=>d.outlet===t.dataset.id));ui.tab='dienstplan';ui.div=dv?dv.id:'';try{history.replaceState(null,'','#dienstplan')}catch(_){}render();window.scrollTo({top:document.querySelector('.tabs').getBoundingClientRect().top+window.scrollY-10});return}
+  if(a==='delOp'){ui.confirmDel='op:'+cur.ops[+t.dataset.oo].id;renderView();return}
+  if(a==='delOpYes'){const o=cur.ops.splice(+t.dataset.oo,1)[0];for(const dv of cur.divs){if(dv.outlet===o.id)delete dv.outlet;for(const d of dv.deps)if(d.outlet===o.id)delete d.outlet}ui.confirmDel=null;touch();renderView();return}
+  if(a==='addWin'){const d=cur.ops[+t.dataset.oo].days[+t.dataset.od];const l=d.w[d.w.length-1];let a0=l?Math.min(1380,l[1]%1440+60):660;d.w.push([a0,Math.min(1440,a0+180)]);touch();renderView();return}
+  if(a==='delWin'){cur.ops[+t.dataset.oo].days[+t.dataset.od].w.splice(+t.dataset.ow,1);touch();renderView();return}
+  if(a==='copyMon'||a==='copyWd'){const o=cur.ops[+t.dataset.oo];const m=o.days[0];for(let j=1;j<(a==='copyMon'?7:5);j++)o.days[j]={on:m.on,w:m.w.map(w=>[...w])};touch();renderView();toast(a==='copyMon'?'Montag auf alle Tage übertragen':'Montag auf Di – Fr übertragen');return}
+  if(a==='addDiv'){const n=($('#newDivName').value||'').trim()||'Neuer Bereich';cur.divs.push({id:uid(),name:n,deps:[{id:uid(),name:'Neue Abteilung',pos:[]}]});touch();render();return}
+  if(a==='addDep'){const dv=cur.divs.find(x=>x.id===t.dataset.div);dv.deps.push({id:uid(),name:'Neue Abteilung',pos:[{id:uid(),t:'Neue Position',e:'staff',s:540,l:1,f:1,d:null}]});touch();renderView();refreshKpis();return}
+  if(a==='delDep'){ui.confirmDel='dep:'+t.dataset.dep;renderView();return}
+  if(a==='delDepYes'){for(const dv of cur.divs){dv.deps=dv.deps.filter(d=>d.id!==t.dataset.dep)}cur.divs=cur.divs.filter(dv=>dv.deps.length);if(cur.hk.dep===t.dataset.dep)cur.hk.dep=null;ui.confirmDel=null;touch();render();return}
+  if(a==='sortDep'){const [,d]=findDep(t.dataset.dep);const rank={mgnt:0,ft:1,pt:2,ptr:3,ext:4};d.pos.sort((x,y)=>rank[x.e]-rank[y.e]||x.s-y.s);touch();renderView();return}
+  if(a==='addPos'){const [,d]=findDep(t.dataset.dep);const last=d.pos[d.pos.length-1];
+    const ol=d.outlet&&(cur.ops||[]).find(x=>x.id===d.outlet);const ow=ol&&(ol.days.find(x=>x.on&&x.w.length)||{w:[]}).w[0];
+    d.pos.push(last?{...last,id:uid()}:{id:uid(),t:'Neue Position',e:'staff',s:ow?ow[0]:540,l:1,f:1,d:null});touch();renderView();refreshKpis();
+    const rows=document.querySelectorAll(`tr[data-dep="${d.id}"] .c-name input`);const inp=rows[rows.length-1];if(inp){inp.focus();inp.select()}return}
+  const tr=t.closest('tr[data-pos]');
+  if(tr&&(a==='dupPos'||a==='delPos')){const [,d]=findDep(tr.dataset.dep);const i=d.pos.findIndex(p=>p.id===tr.dataset.pos);
+    if(a==='dupPos')d.pos.splice(i+1,0,{...d.pos[i],id:uid()});else d.pos.splice(i,1);touch();renderView();refreshKpis();return}
+});
+function onYearChange(){
+  const y=cur.year,wd=workDays(cur);
+  const h=$('#wdHead');if(h)h.textContent=wd;const hf=$('#wdHeadF');if(hf)hf.textContent=wdText(y);
+  const f=$('#wdFormula');if(f)f.innerHTML=`Arbeitstage je Mitarbeiter = ${wdText(y)} = <b>${wd}</b><br>Hochrechnungsfaktor für 7-Tage-Positionen = ${y.ops} ÷ ${wd} = <b>${wd>0?fmt2(y.ops/wd):'–'}</b>`;
+  if(ui.tab==='dienstplan'){const R=calc(cur);for(const dv of cur.divs){const ds=document.querySelector(`[data-divsum="${dv.id}"]`);if(ds)ds.innerHTML=divSum(R.divs[dv.id]);for(const d of dv.deps){const st=document.querySelector(`[data-dstats="${d.id}"]`);if(st)st.innerHTML=deptStats(R.deps[d.id])}}}
+  else if(ui.tab!=='parameter')renderView();
+  refreshKpis();
+}
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.id==='projSel'){openProject(el.value);return}
+  if(el.closest('#newMenu')){if(el.id&&el.id.startsWith('np-'))newDlgWd();return}
+  if(el.id==='fileImport'||!cur)return;
+  if(el.id==='pName'){cur.name=el.value.trim()||'Ohne Namen';touch();renderProjSel();return}
+  if(el.id==='pStatus'){cur.status=el.value;touch();return}
+  if(el.id==='pAuthor'){cur.author=el.value;touch();return}
+  if(el.id==='showExt'){ui.showExt=el.checked;try{localStorage.setItem('mg-ext',el.checked?'1':'0')}catch(_){}renderView();return}
+  if(el.id==='covDiv'){ui.covDiv=el.value;drawCov();return}
+  if(el.id==='covExt'){ui.covExt=el.checked;drawCov();return}
+  if(el.id==='hkAuto'){cur.hk.auto=el.checked;if(el.checked&&!cur.hk.dep){const d=cur.divs.flatMap(x=>x.deps).find(d=>/housekeeping/i.test(d.name))||cur.divs[0]?.deps[0];cur.hk.dep=d?d.id:null}touch();render();return}
+  if(el.dataset.dname){const [,d]=findDep(el.dataset.dname);d.name=el.value;touch();return}
+  if(el.dataset.hk){const k=el.dataset.hk;let v=el.value;
+    if(k==='end'){const s=+cur.hk.start;let d=mod(+v-s);cur.hk.d=d||1440}
+    else if(k==='f')cur.hk.f=el.checked?1:0;
+    else{
+      if(k==='rooms'||k==='per')v=Math.max(k==='per'?1:0,+v||0);if(k==='occ')v=Math.min(100,Math.max(0,+v||0))/100;if(k==='start')v=+v;
+      if(k==='emp'){cur.hk.d=null;cur.hk.f=defF(v)}
+      cur.hk[k]=v;
+    }
+    touch();
+    if(ui.tab==='dienstplan'){renderView();refreshKpis()}else{const f=$('#hkFormula');if(f)f.innerHTML=hkFormula();refreshKpis()}
+    return}
+  if(el.id==='brkCountry'||el.id==='brkCountry2'){if(el.value!=='custom')cur.brk=brkPreset(el.value);else cur.brk.country='custom';touch();render();return}
+  if(el.id==='brkOp'){cur.brk.op=el.value;cur.brk.country='custom';touch();render();return}
+  if(el.id==='brkPaid'){cur.brk.paid=el.checked;cur.brk.country='custom';touch();render();return}
+  if(el.dataset.tier!==undefined){cur.brk.tiers[+el.dataset.tier][el.dataset.tf]=Math.max(0,+el.value||0);cur.brk.tiers.sort((a,b)=>a.h-b.h);cur.brk.country='custom';touch();render();return}
+  if(el.dataset.emp){const e2=cur.emp[el.dataset.emp];const f=el.dataset.ef;e2[f]=f==='label'?(el.value||e2.label):Math.max(0,+el.value||0);touch();
+    const pr=document.querySelector(`[data-pres="${el.dataset.emp}"]`);if(pr)pr.textContent=fmt2(defDur(cur,el.dataset.emp)/60)+' h';const pb=document.querySelector(`[data-pbrk="${el.dataset.emp}"]`);if(pb)pb.textContent=breakMin(cur,defDur(cur,el.dataset.emp))+' Min.';refreshKpis();return}
+  if(el.dataset.lvl){cur.lvl[el.dataset.lvl]=Math.max(0,+el.value||0);touch();render();return}
+  if(el.dataset.year){cur.year[el.dataset.year]=Math.max(0,+el.value||0);touch();if(el.dataset.year==='fteWeek'){render();return}onYearChange();return}
+  if(el.dataset.oo!==undefined){const o=cur.ops[+el.dataset.oo],f=el.dataset.of;
+    if(f==='note'){o.note=el.value;touch();return}
+    if(f==='o'){const old=o.o,nv=el.value.trim()||old;o.o=nv;
+      /* verknüpften Bereich und gleichnamige Abteilungen mit umbenennen */
+      for(const dv of cur.divs){if(dv.outlet===o.id&&dv.name===old)dv.name=nv;for(const d of dv.deps)if(d.outlet===o.id&&d.name===old)d.name=nv}
+      touch();const sum=el.closest('.outlet')&&el.closest('.outlet').querySelector('.ol-sum');
+      if(sum){const used=cur.divs.flatMap(dv=>dv.deps.filter(d=>d.outlet===o.id).map(d=>dv.name+' · '+d.name));sum.innerHTML=`<b class="num">${fmt1(weekHours(o))}</b> Std / Woche${used.length?` · im Dienstplan: ${esc(used.join(', '))}`:''}${staffLine(o)}`}
+      return}
+    const d=o.days[+el.dataset.od];
+    if(f==='on'){d.on=el.checked?1:0;if(d.on&&!d.w.length)d.w=[[660,1320]]}
+    else{const w=d.w[+el.dataset.ow];w[f==='a'?0:1]=+el.value}
+    touch();renderView();return}
+  if(el.dataset.doutlet){const [,d]=findDep(el.dataset.doutlet);if(el.value)d.outlet=el.value;else delete d.outlet;touch();const tl=document.querySelectorAll(`tr[data-dep="${d.id}"] .tl, [data-band="${d.id}"]`);renderView();return}
+  if(el.id==='refDay'){ui.refDay=+el.value;renderView();return;document.querySelectorAll('.tl .owl').forEach(x=>{const tr=x.closest('tr');const dep=tr.dataset.dep||cur.hk.dep;x.innerHTML=bandFor(dep)});document.querySelectorAll('[data-band]').forEach(x=>x.innerHTML=bandInfo(x.dataset.band));return}
+  const tr=el.closest('tr[data-pos]');
+  if(tr&&el.dataset.f){const [,d]=findDep(tr.dataset.dep);const pos=d.pos.find(p=>p.id===tr.dataset.pos);const f=el.dataset.f;
+    if(f==='t')pos.t=el.value;
+    else if(f==='e'){pos.e=el.value;pos.d=null;pos.f=defF(pos.e);const fc=tr.querySelector('[data-f="f"]');fc.checked=!!pos.f;fc.disabled=pos.e==='ext'}
+    else if(f==='s')pos.s=+el.value;
+    else if(f==='end'){const dd=mod(+el.value-pos.s);pos.d=dd||1440}
+    else if(f==='f')pos.f=el.checked?1:0;
+    else if(f==='l')pos.l=el.checked?1:0;
+    touch();refreshRow(tr,pos);refreshDept(d.id);
+    if(f==='e'&&pos.e==='ext'&&!ui.showExt)renderView();}
+});
+$('#delWrap').addEventListener('click',async e=>{
+  const id=e.target.id;
+  if(id==='btnDel'){ui.confirmDel='project';renderDelWrap()}
+  else if(id==='delNo'){ui.confirmDel=null;renderDelWrap()}
+  else if(id==='delYes'){ui.confirmDel=null;const gone=cur;
+    delete projects[gone.id];cur=Object.values(projects)[0]||null;clearTimeout(saveTimer);dirty=false;
+    if(localMode){localSave();toast('Projekt gelöscht')}
+    if(db&&!localMode){try{await db.doc('projects/'+gone.id).delete();toast('Projekt gelöscht')}catch(err){toast('Löschen fehlgeschlagen');projects[gone.id]=gone;cur=gone}}
+    rememberCur();render()}
+});
+$('#btnNew').onclick=()=>{$('#newMenu').hidden?openNew():($('#newMenu').hidden=true)};
+$('#newCreate').onclick=createFromDlg;
+$('#newCancel').onclick=()=>{$('#newMenu').hidden=true};
+$('#newMenu').addEventListener('input',e=>{if(e.target.id&&e.target.id.startsWith('np-'))newDlgWd()});
+$('#btnDup').onclick=()=>{if(!cur)return;const c=JSON.parse(JSON.stringify(cur));c.id=uid();c.name=cur.name+' (Kopie)';addProject(c);toast('Kopie angelegt')};
+$('#btnImport').onclick=()=>$('#fileImport').click();
+$('#fileImport').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  if(/\.json$/i.test(f.name)){try{const j=JSON.parse(await f.text());const list=j.projects||(j.divs?[j]:[]);if(!list.length)throw new Error('Keine Projekte in der Datei');
+      for(const p of list){if(projects[p.id])p.id=uid();normalize(p);projects[p.id]=p}cur=list[list.length-1];rememberCur();if(localMode)localSave();else for(const p of list){dirty=true;cur=p;await save()}render();toast(list.length+' Projekt(e) geladen')}catch(err){toast(err.message||'Datei konnte nicht gelesen werden')}return}
+  try{const p=await importExcel(f);addProject(p);toast('Excel importiert: '+p.name)}catch(err){toast(err.message||'Import fehlgeschlagen')}};
+$('#btnExport').onclick=exportExcel;
+$('#btnPdf').onclick=exportPdf;
+$('#btnBackup').onclick=backupJson;
+
+function addProject(p){normalize(p);projects[p.id]=p;cur=p;rememberCur();$('#newMenu').hidden=true;ui.div='';
+  if(localMode){localSave();render();return}
+  dirty=true;render();save()}
+function openProject(id){if(dirty)save();cur=projects[id]||null;ui.div='';ui.confirmDel=null;rememberCur();render()}
+
+/* ---------- Excel export / import ---------- */
+async function exportExcel(){
+  if(!cur)return;
+  if(!window.XLSX){toast('Excel-Bibliothek nicht geladen');return}
+  const R=calc(cur),y=cur.year,wb=XLSX.utils.book_new();
+  const sum=[['Manning Guide',cur.name],['Status',cur.status],['Erstellt von',cur.author],['Stand',new Date().toLocaleDateString('de-AT')],[],
+    ['Urlaubstage',y.hol],['Feiertage',y.ph],['Krankheitstage',y.sick],['Freie Tage',y.off],['Arbeitstage je MA',R.wd],[],
+    ['Heads / Tag',R.tot.heads],['IDEAL Jahresbedarf',+R.tot.ideal.toFixed(2)],['FTE',+R.tot.fte.toFixed(2)],['Spinde',R.tot.lock],['Fremdfirma-Schichten / Tag',R.tot.ext],[],
+    ['Vollzeit (errechnet)',R.tot.byEmp.ft],['Teilzeit (errechnet)',R.tot.byEmp.pt],['Part Timer (errechnet)',R.tot.byEmp.ptr],['Management',R.tot.byEmp.mgnt],[],
+    ['Bereich','Abteilung','Heads','5-Tage','7-Tage','IDEAL','Std / Jahr','FTE','Spinde']];
+  for(const dv of cur.divs)for(const d of dv.deps){const r=R.deps[d.id];sum.push([dv.name,d.name,r.heads,+r.d5.toFixed(2),+r.d7.toFixed(2),+r.ideal.toFixed(2),Math.round(r.hrs),+r.fte.toFixed(2),r.lock])}
+  sum.push(['Gesamt','',R.tot.heads,+R.tot.d5.toFixed(2),+R.tot.d7.toFixed(2),+R.tot.ideal.toFixed(2),Math.round(R.tot.hrs),+R.tot.fte.toFixed(2),R.tot.lock]);
+  const ws1=XLSX.utils.aoa_to_sheet(sum);ws1['!cols']=[{wch:26},{wch:36},{wch:9},{wch:9},{wch:9},{wch:9},{wch:11},{wch:9},{wch:9}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Zusammenfassung');
+  const rows=[['Bereich','Abteilung','Position','Rolle','Ausmaß %','Kategorie','Beginn','Ende','Präsenz Std','Pause Min','Arbeitszeit Std','FTE (7 Tage)','Tage/Woche','Std/Jahr','Spind',...TIMES.map(hhmm)]];
+  for(const dv of cur.divs)for(const d of dv.deps)for(const pos of deptPositions(cur,d)){const ext=pos.e==='ext',e=pos.s+dur(cur,pos),nh=netH(cur,pos);
+    rows.push([dv.name,d.name,pos.t,cur.emp[pos.e].label,ext?'':+(pct(cur,pos)*100).toFixed(1),lvlLabel(cur,pos),hhmm(pos.s),hhmm(e)+(e>1440?' (+1)':''),dur(cur,pos)/60,brkOf(cur,pos),+nh.toFixed(2),ext?'':(pos.f?'ja':'nein'),ext?'':days(pos),ext?0:+(nh*days(pos)*y.weeks).toFixed(1),pos.l?'ja':'nein',...TIMES.map(m=>onDuty(cur,pos,m)?1:'')])}
+  const ws2=XLSX.utils.aoa_to_sheet(rows);ws2['!cols']=[{wch:18},{wch:26},{wch:30},{wch:14},{wch:9},{wch:18},{wch:7},{wch:10},{wch:8},{wch:8},{wch:9},{wch:9},{wch:8},{wch:9},{wch:6},...TIMES.map(()=>({wch:5}))];
+  XLSX.utils.book_append_sheet(wb,ws2,'Tagesdienstplan');
+  const par=[['Rolle','Standard Std/Tag','Pause Min','Schicht Std'],...EMP_KEYS.map(k=>{const e=cur.emp[k];return [e.label,+e.net,breakMin(cur,defDur(cur,k)),defDur(cur,k)/60]}),[],
+    ['Vollzeit-Tag (Std)',dayBase(cur)],['Vollzeit ab %',cur.lvl.full],['Teilzeit ab %',cur.lvl.part],[],
+    ['Pausenregel',brkName()],['Pause bezahlt',cur.brk.paid?'ja':'nein'],...cur.brk.tiers.map(t=>[`Arbeitszeit ${cur.brk.op==='>='?'ab':'mehr als'} ${t.h} Std`,`${t.m} Min.`]),[],
+    ['Betriebstage',y.ops],['Feiertage',y.ph],['Krankheitstage',y.sick],['Freie Tage',y.off],['Urlaubstage',y.hol],['Arbeitstage je MA',workDays(cur)],['Wochen / Jahr',y.weeks],['FTE-Basis Std/Woche',y.fteWeek],[],
+    ['Zimmer',cur.hk.rooms],['Ø Auslastung',cur.hk.occ],['Zimmer je MA',cur.hk.per],['Zimmermädchen / Tag',cur.hk.auto?hkCount(cur):'manuell'],[],
+    ];
+  const oh=[['Outlet','Tag','Geöffnet','Zeitfenster','Std','Hinweis']];
+  for(const o of cur.ops){o.days.forEach((d,j)=>oh.push([o.o,DAYS_L[j],d.on?'ja':'nein',d.on?d.w.map(fmtWin).join(' / '):'',+dayHours(d).toFixed(2),j===0?(o.note||''):'']));oh.push([o.o,'Summe Woche','','',+weekHours(o).toFixed(2),'']);oh.push([])}
+  const ws4=XLSX.utils.aoa_to_sheet(oh);ws4['!cols']=[{wch:24},{wch:14},{wch:9},{wch:40},{wch:7},{wch:40}];
+  const ws3=XLSX.utils.aoa_to_sheet(par);ws3['!cols']=[{wch:24},{wch:12},{wch:60},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws3,'Parameter');
+  XLSX.utils.book_append_sheet(wb,ws4,'Öffnungszeiten');
+  const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const fname=`Manning Guide_${(cur.name||'Projekt').replace(/[\\/:*?"<>|]/g,'')}.xlsx`;
+  const dl=window.claude?await claude.use('downloads'):null;
+  if(dl){try{await dl.save({filename:fname,data:new Blob([buf])});toast('Excel gespeichert')}catch(err){if(err&&err.code!=='declined')toast('Export nicht möglich: '+(err.code||'Fehler'))}}
+  else saveBlob(fname,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+}
+async function importExcel(file){
+  if(!window.XLSX)throw new Error('Excel-Bibliothek nicht geladen');
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});
+  const ws=wb.Sheets['Daily Schedule'];if(!ws)throw new Error('Blatt „Daily Schedule“ nicht gefunden – bitte die Manning-Guide-Vorlage verwenden.');
+  const v=a=>{const c=ws[a];return c?c.v:undefined};
+  const p=newProject(false);p.divs=[];p.ops=[];
+  p.name=String(v('D1')||file.name.replace(/\.[^.]+$/,'')).trim();
+  const xnet={mgnt:8,ft:8,pt:4,ptr:3};for(const [k,r] of [['mgnt',16],['ft',17],['pt',18],['ptr',19]]){if(typeof v('D'+r)==='number')xnet[k]=v('D'+r)}p.emp.mgnt.net=xnet.mgnt;p.emp.staff.net=xnet.ft;
+  const yr={ops:'I16',ph:'I17',sick:'I18',off:'I19',hol:'I20'};for(const k in yr)if(typeof v(yr[k])==='number')p.year[k]=v(yr[k]);
+  if(typeof v('D23')==='number'){p.hk.rooms=v('D23');p.hk.occ=+v('D24')||.75;p.hk.per=+v('D25')||14}
+  for(let r=9;r<=13;r++){const o=v('C'+r);if(o&&typeof o==='string'&&o.includes(':'))p.ops.push(toOutlet({o:o.replace(':','').trim(),h:String(v('E'+r)||'').replace(/^\|\s*/,'')}))}
+  const ref=XLSX.utils.decode_range(ws['!ref']);let dv=null,dep=null;
+  for(let r=29;r<=ref.e.r+1;r++){const A=v('A'+r),C=v('C'+r),D=v('D'+r);
+    if(typeof A==='string'&&A.trim()&&A!=='Pos.'&&C===undefined&&/^[A-Z&| .]+$/i.test(A)&&!/TOTAL/i.test(A)){dv={id:uid(),name:A.trim(),deps:[]};p.divs.push(dv);dep=null;continue}
+    if(A==='Pos.'&&C){if(!dv){dv={id:uid(),name:'Allgemein',deps:[]};p.divs.push(dv)}dep={id:uid(),name:String(C).trim(),pos:[]};dv.deps.push(dep);continue}
+    if(dep&&C&&EMP_XLS[D]){const E=v('E'+r);const s=typeof E==='number'?Math.round((E%1)*1440/30)*30%1440:540;const B=+v('B'+r)||0;const e=EMP_XLS[D];
+      const role=roleOf(e);dep.pos.push({id:uid(),t:String(C).trim(),e:role,s,l:B===-1?0:1,f:defF(role),d:role==='staff'&&xnet[e]!==xnet.ft?durForNet(p,xnet[e]):null})}
+  }
+  p.divs=p.divs.filter(d=>d.deps.length);
+  if(!p.divs.length)throw new Error('Keine Positionen gefunden.');
+  const hk=p.divs.flatMap(d=>d.deps).find(d=>/housekeeping/i.test(d.name));
+  if(hk){p.hk.dep=hk.id;p.hk.auto=false}
+  return p;
+}
+
+
+function saveBlob(name,blob){try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);toast('Download gestartet')}catch(e){toast('Download nicht möglich')}}
+/* Sicherung aller Projekte als JSON (für die Variante ohne Claude-Speicher) */
+function backupJson(){saveBlob(`Manning Guide_Sicherung_${new Date().toISOString().slice(0,10)}.json`,new Blob([JSON.stringify({app:'mamu-manning-guide',v:2,projects:Object.values(projects)},null,1)],{type:'application/json'}))}
+/* ---------- PDF-Export (alle Seiten) ---------- */
+const PDF_LIBS=['https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js','https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'];
+function loadScript(src){return new Promise((res,rej)=>{if(document.querySelector(`script[data-src="${src}"]`))return res();const s=document.createElement('script');s.src=src;s.dataset.src=src;s.onload=()=>res();s.onerror=()=>rej(new Error('load'));document.head.appendChild(s)})}
+/* Standardschrift der PDF kennt nur Westeuropäisch: Sonderzeichen ersetzen */
+const PT=v=>String(v??'').replace(/→/g,'->').replace(/✓/g,'ok').replace(/[−]/g,'-').replace(/≥/g,'>=').replace(/⚠\s?/g,'').replace(/[čć]/g,'c').replace(/[ČĆ]/g,'C').replace(/đ/g,'d').replace(/Đ/g,'D').replace(/š/g,'s').replace(/Š/g,'S').replace(/ž/g,'z').replace(/Ž/g,'Z').replace(/[^\x00-\xFF–—„“”‘’…•€]/g,'');
+async function logoPng(){
+  const svg=document.querySelector('.brand svg');if(!svg)return null;
+  const src=svg.outerHTML.replace('fill="currentColor"','fill="#2e2c2d"').replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="195" ');
+  return new Promise(res=>{const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=1200;c.height=195;c.getContext('2d').drawImage(img,0,0,1200,195);try{res(c.toDataURL('image/png'))}catch(e){res(null)}};img.onerror=()=>res(null);img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(src)});
+}
+async function exportPdf(){
+  if(!cur)return;
+  const btn=$('#btnPdf');if(btn)btn.disabled=true;toast('PDF wird erstellt …');
+  try{for(const s of PDF_LIBS)await loadScript(s)}catch(e){toast('PDF-Bibliothek konnte nicht geladen werden');if(btn)btn.disabled=false;return}
+  try{
+    const blob=await buildPdf();
+    const fname=`Manning Guide_${(cur.name||'Projekt').replace(/[\\/:*?"<>|]/g,'')}.pdf`;
+    const dl=window.claude?await claude.use('downloads'):null;
+    if(dl){try{await dl.save({filename:fname,data:blob});toast('PDF gespeichert')}catch(err){if(err&&err.code!=='declined')toast('Export nicht möglich: '+(err.code||'Fehler'))}}
+    else saveBlob(fname,blob);
+  }catch(e){console.error(e);toast('PDF konnte nicht erstellt werden')}
+  if(btn)btn.disabled=false;
+}
+async function buildPdf(){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4',compress:true});
+  const W=297,H=210,M=14,CW=W-2*M;
+  const C={ink:[46,44,45],ink2:[92,89,90],ink3:[138,134,135],terra:[177,142,114],green:[69,82,70],olive:[119,112,74],line:[155,149,153],hair:[222,220,216],bg:[245,245,245],sunk:[236,235,232],warn:[154,91,30],white:[255,255,255],openf:[214,222,214]};
+  const fill=c=>doc.setFillColor(...c),draw=c=>doc.setDrawColor(...c),ink=c=>doc.setTextColor(...c);
+  const font=(sz,st)=>{doc.setFont('helvetica',st||'normal');doc.setFontSize(sz)};
+  const txt=(s,x,y,o)=>doc.text(PT(s),x,y,o||{});
+  const logo=await logoPng();
+  const R=calc(cur),T=R.tot,y0=cur.year;
+  const dateStr=new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'});
+  const tblBase={theme:'plain',margin:{left:M,right:M,top:24,bottom:16},styles:{font:'helvetica',fontSize:7.5,cellPadding:{top:1.3,bottom:1.3,left:1.6,right:1.6},textColor:C.ink,lineColor:C.hair,lineWidth:{bottom:0.15}},
+    headStyles:{fontStyle:'bold',fontSize:6.3,textColor:C.ink3,lineColor:C.line,lineWidth:{bottom:0.3}},didParseCell:h=>{if(typeof h.cell.raw==='string')h.cell.text=[PT(h.cell.raw)]}};
+  const sectionTitle=(t,sub)=>{font(15,'normal');ink(C.ink);doc.setCharSpace(0.6);txt(t.toUpperCase(),M,30);doc.setCharSpace(0);if(sub){font(8.5);ink(C.ink2);txt(sub,M,36)}return sub?42:38};
+  const newPage=()=>{doc.addPage()};
+  const ensure=(y,need)=>{if(y+need>H-18){newPage();return 26}return y};
+
+  /* --- 1 Deckblatt --- */
+  fill(C.bg);doc.rect(0,0,W,H,'F');
+  if(logo)doc.addImage(logo,'PNG',W/2-35,H/2-14,70,11.4);
+  font(9);ink(C.ink);txt('Hospitality',W/2,H/2+3.5,{align:'center'});
+  draw(C.ink);doc.setLineWidth(0.3);doc.line(M+2,H-34,M+2,H-18);
+  font(13,'bold');ink(C.ink);txt('Manning Guide',M+6,H-28.5);
+  font(9);ink(C.ink2);txt(`${cur.name} · ${cur.status} · ${cur.author}`,M+6,H-21.5);
+  font(8.5);ink(C.ink2);txt(dateStr,W-M,H-21.5,{align:'right'});
+
+  /* --- 2 Übersicht --- */
+  newPage();let y=sectionTitle('Übersicht',`Personalbedarf aus dem Tagesdienstplan · Arbeitstage je Mitarbeiter ${R.wd} (${wdText(y0)})`);
+  const rooms=+cur.hk.rooms||0;const cov=coverage(cur,'',false);let pk=0;cov.forEach((c,i)=>{if(c.n>cov[pk].n)pk=i});
+  const kp=[[fmt0(T.heads),'Heads pro Tag',`intern, zzgl. ${fmt0(T.ext)} Fremdfirma`,C.ink],[fmt1(T.ideal),'IDEAL · Jahresbedarf','inkl. Urlaub, Frei, Feiertag, Krankheit',C.terra],[fmt1(T.fte),'FTE',`à ${fmt0(y0.fteWeek)} Std/Woche`,C.ink],[fmt0(T.lock),'Spinde','ohne Executive-Team, inkl. Fremdfirmen',C.ink],[rooms?fmt2(T.ideal/rooms):'–','Mitarbeiter je Zimmer',`${fmt0(rooms)} Zimmer · Spitze ${cov[pk].n} MA um ${hhmm(TIMES[pk])}`,C.ink]];
+  const kw=CW/5;kp.forEach((k,i)=>{const x=M+i*kw;draw(C.line);doc.setLineWidth(0.25);doc.line(x,y,x,y+22);font(22);ink(k[3]);txt(k[0],x+3,y+8.5);font(8,'bold');ink(C.ink);txt(k[1],x+3,y+14.5);font(7);ink(C.ink2);doc.text(doc.splitTextToSize(PT(k[2]),kw-8),x+3,y+18.5)});
+  y+=32;
+  /* Zusammensetzung */
+  fill(C.olive);doc.roundedRect(M,y,CW,22,1.2,1.2,'F');font(7.5);ink(C.white);doc.setCharSpace(0.5);txt('ZUSAMMENSETZUNG TAGESDIENSTPLAN',M+5,y+6);doc.setCharSpace(0);
+  const mixv=[...CATS.map(k=>[String(T.byEmp[k]),CAT_L[k]]),[String(R.wd),'Arbeitstage je MA / Jahr']];const mw=(CW-10)/mixv.length;
+  mixv.forEach((m,i)=>{const x=M+5+i*mw;doc.setDrawColor(220,216,200);doc.setLineWidth(0.2);doc.line(x,y+9,x,y+19);font(15);ink(C.white);txt(m[0],x+2.5,y+15);font(6.5);txt(m[1],x+2.5,y+18.8)});
+  y+=30;
+  /* Abdeckung Öffnungszeiten */
+  const ovRows=[];for(const dv of cur.divs)for(const d of dv.deps){const o=outletOf(d);if(o)ovRows.push([dv,d,o])}
+  font(9,'bold');ink(C.ink);doc.setCharSpace(0.4);txt('ABDECKUNG DER ÖFFNUNGSZEITEN',M,y);doc.setCharSpace(0);y+=2;
+  if(ovRows.length){
+    doc.autoTable({...tblBase,startY:y,head:[['Outlet','Abteilung',...DAYS]],body:ovRows.map(([dv,d,o])=>[o.o,dv.name+' · '+d.name,...DAYS.map((n,j)=>{if(!o.days[j].on)return 'geschlossen';const g=gapsFor(d,j);return g.length?'Lücke '+g.map(x=>hhmm(x[0])+'–'+hhmm(x[1])).join(', '):'abgedeckt'})]),
+      columnStyles:{0:{cellWidth:34,fontStyle:'bold'},1:{cellWidth:52}},
+      didParseCell:h=>{if(typeof h.cell.raw==='string')h.cell.text=[PT(h.cell.raw)];if(h.section==='body'&&h.column.index>1){const r=h.cell.raw;if(r.startsWith('Lücke')){h.cell.styles.textColor=C.warn;h.cell.styles.fontStyle='bold'}else if(r==='abgedeckt')h.cell.styles.textColor=C.green;else h.cell.styles.textColor=C.ink3}}});
+    y=doc.lastAutoTable.finalY+4;
+  }else{font(8);ink(C.ink2);txt('Keine Abteilung einem Outlet zugeordnet.',M,y+5);y+=10}
+
+  /* --- 3 Parameter --- */
+  newPage();y=sectionTitle('Parameter',`Pausenregel: ${brkName()} · Vollzeit-Tag ${fmt1(dayBase(cur))} h`);
+  const half=(CW-8)/2;
+  doc.autoTable({...tblBase,startY:y,tableWidth:half,margin:{...tblBase.margin,right:M+half+8},head:[['Projektparameter','Wert']],body:[['Urlaubstage / Jahr',y0.hol],['Feiertage / Jahr',y0.ph],['Krankheitstage / Jahr',y0.sick],['Freie Tage / Jahr',y0.off],['Betriebstage / Jahr',y0.ops],['Arbeitstage je Mitarbeiter',`${R.wd}  (${wdText(y0)})`],['Hochrechnung 7-Tage-Positionen',`${y0.ops} ÷ ${R.wd} = ${R.wd?fmt2(y0.ops/R.wd):'–'}`],['Wochen / Jahr',y0.weeks],['FTE-Basis',`${y0.fteWeek} Std/Woche`],['Vollzeit ab / Teilzeit ab',`${cur.lvl.full} % / ${cur.lvl.part} %`]].map(r=>r.map(String)),columnStyles:{0:{cellWidth:62}}});
+  const yL=doc.lastAutoTable.finalY;
+  doc.autoTable({...tblBase,startY:y,tableWidth:half,margin:{...tblBase.margin,left:M+half+8},head:[['Rolle','Standard Std/Tag','Pause','Schicht']],body:EMP_KEYS.map(k=>[cur.emp[k].label,fmt2(+cur.emp[k].net),breakMin(cur,defDur(cur,k))+' Min.',fmt2(defDur(cur,k)/60)+' h'])});
+  let yR=doc.lastAutoTable.finalY+4;
+  doc.autoTable({...tblBase,startY:yR,tableWidth:half,margin:{...tblBase.margin,left:M+half+8},head:[[`Pausenregel · ${brkName()}`,'Pause']],body:[...cur.brk.tiers.map(t=>[`Arbeitszeit ${cur.brk.op==='>='?'ab':'mehr als'} ${fmt1(t.h)} Std`,`${t.m} Min.`]),['Pause zählt als Arbeitszeit',cur.brk.paid?'ja':'nein']]});
+  yR=doc.lastAutoTable.finalY+4;
+  doc.autoTable({...tblBase,startY:yR,tableWidth:half,margin:{...tblBase.margin,left:M+half+8},head:[['Housekeeping','']],body:[['Zimmer',fmt0(cur.hk.rooms)],['Ø Auslastung',Math.round(cur.hk.occ*100)+' %'],['Zimmer je MA / Tag',String(cur.hk.per)],['Zimmermädchen / Tag',cur.hk.auto?`${hkCount(cur)} (automatisch, ${cur.emp[cur.hk.emp].label})`:'manuell im Dienstplan']]});
+  y=Math.max(yL,doc.lastAutoTable.finalY)+8;
+  y=ensure(y,30);font(9,'bold');ink(C.ink);doc.setCharSpace(0.4);txt('F&B-ÖFFNUNGSZEITEN',M,y);doc.setCharSpace(0);
+  doc.autoTable({...tblBase,startY:y+2,head:[['Outlet',...DAYS,'Std / Woche']],body:cur.ops.map(o=>[o.o+(o.note?`\n${o.note}`:''),...o.days.map(d=>d.on?(d.w.length?d.w.map(fmtWin).join('\n'):'ohne feste Zeiten'):'geschlossen'),fmt1(weekHours(o))]),
+    columnStyles:{0:{cellWidth:44,fontStyle:'bold'},8:{halign:'right',cellWidth:18}},styles:{...tblBase.styles,fontSize:7}});
+
+  /* --- 4 Tagesdienstplan --- */
+  newPage();y=sectionTitle('Tagesdienstplan',`Öffnungszeiten und Abdeckung für ${DAYS_L[ui.refDay]} · Balken: Präsenz inkl. Pause`);
+  const legend=[['Management',C.green,'F'],['Vollzeit',C.terra,'F'],['Teilzeit / Part Timer',C.terra,'H'],['Fremdfirma',C.line,'D'],['Outlet geöffnet',C.openf,'F'],['Lücke',C.warn,'H']];
+  let lx=M;font(7);legend.forEach(([l,c,m])=>{if(m==='F'){fill(c);doc.rect(lx,y-2.6,6,2.6,'F')}else if(m==='D'){draw(c);doc.setLineDashPattern([0.6,0.5],0);doc.setLineWidth(0.25);doc.rect(lx,y-2.6,6,2.6);doc.setLineDashPattern([],0)}else{draw(c);doc.setLineWidth(0.25);doc.rect(lx,y-2.6,6,2.6);for(let i=0;i<4;i++)doc.line(lx+i*1.6,y,lx+i*1.6+1.2,y-2.6)}ink(C.ink2);txt(l,lx+7.5,y-0.3);lx+=doc.getTextWidth(PT(l))+15});
+  y+=5;
+  const TLW=118;
+  const drawTimeline=(cell,pos,d,isHead)=>{
+    const x=cell.x+1.5,w=cell.width-3,yy=cell.y+1,hh=cell.height-2;
+    draw(C.hair);doc.setLineWidth(0.1);for(let h=0;h<=24;h+=3){const xx=x+w*h/24;doc.line(xx,yy,xx,yy+hh)}
+    if(isHead){font(5.8);ink(C.ink3);for(let h=0;h<24;h+=3)txt(String(h).padStart(2,'0'),x+w*h/24+0.4,yy+hh-0.6);return}
+    const o=outletOf(d);
+    if(o){const day=o.days[ui.refDay];if(day.on){fill(C.openf);day.w.forEach(wn=>{const a=wn[0],e=a+winLen(wn);(e>1440?[[a,1440],[0,e-1440]]:[[a,e]]).forEach(([p,q])=>doc.rect(x+w*p/1440,yy,w*(q-p)/1440,hh,'F'))})}}
+    if(!pos)return;
+    const s=pos.s,e=s+dur(cur,pos),c=catOf(cur,pos);
+    (e>1440?[[s,1440],[0,e-1440]]:[[s,e]]).forEach(([p,q])=>{const bx=x+w*p/1440,bw=w*(q-p)/1440,by=yy+hh*0.22,bh=hh*0.56;
+      if(c==='ext'){draw(C.line);doc.setLineDashPattern([0.6,0.5],0);doc.setLineWidth(0.25);doc.rect(bx,by,bw,bh);doc.setLineDashPattern([],0)}
+      else if(c==='pt'||c==='ptr'){draw(C.terra);doc.setLineWidth(0.25);doc.rect(bx,by,bw,bh);doc.saveGraphicsState&&0;for(let k=bx;k<bx+bw-0.8;k+=1.4)doc.line(k,by+bh,Math.min(k+1,bx+bw),by)}
+      else{fill(c==='mgnt'?C.green:C.terra);doc.rect(bx,by,bw,bh,'F')}});
+  };
+  for(const dv of cur.divs){
+    y=ensure(y,26);font(11);ink(C.ink);const dvw=doc.getTextWidth(PT(dv.name.toUpperCase()))+dv.name.length*0.6;doc.setCharSpace(0.6);txt(dv.name.toUpperCase(),M,y+4);doc.setCharSpace(0);
+    const D=R.divs[dv.id];font(7.5);ink(C.ink2);txt(`Heads ${fmt0(D.heads)} · IDEAL ${fmt1(D.ideal)} · FTE ${fmt1(D.fte)}`,M+dvw+5,y+4);
+    y+=7;
+    for(const d of dv.deps){
+      const r=R.deps[d.id],o=outletOf(d),list=deptPositions(cur,d);
+      const hkN=cur.hk.auto&&cur.hk.dep===d.id?hkCount(cur):0;
+      const rows=d.pos.map(p=>({p}));if(hkN)rows.push({p:{...hkPos(cur),t:`Zimmermädchen (Rooms) × ${hkN}`}});
+      y=ensure(y,18);
+      font(8.5,'bold');ink(C.ink);txt(d.name.toUpperCase(),M,y+3.5);const dnw=doc.getTextWidth(PT(d.name.toUpperCase()))+4;
+      let info=`Heads ${fmt0(r.heads)}   IDEAL ${fmt2(r.ideal)}   FTE ${fmt2(r.fte)}${r.ext?`   Fremdfirma ${r.ext}`:''}`;
+      if(o){const g=gapsFor(d,ui.refDay);info+=`   ·   Outlet ${o.o} (${DAYS[ui.refDay]}: ${o.days[ui.refDay].on?(o.days[ui.refDay].w.map(fmtWin).join(', ')||'ohne feste Zeiten'):'geschlossen'})`;
+        font(7.5);ink(C.ink2);txt(info,M+dnw,y+3.5);
+        if(o.days[ui.refDay].on){const gt=g.length?`Lücke ${g.map(x=>hhmm(x[0])+'–'+hhmm(x[1])).join(', ')}`:'Öffnungszeiten abgedeckt';font(7.5,'bold');ink(g.length?C.warn:C.green);txt(gt,W-M,y+3.5,{align:'right'})}}
+      else{font(7.5);ink(C.ink2);txt(info,M+dnw,y+3.5)}
+      if(!rows.length){font(7.5);ink(C.ink3);txt('Keine Positionen.',M,y+9);y+=14;continue}
+      doc.autoTable({...tblBase,startY:y+5,head:[['Position','Rolle','Beginn','Ende','Std','Ausmaß','FTE','Spind','']],
+        body:rows.map(({p})=>{const e=p.s+dur(cur,p);return [p.t,cur.emp[p.e].label,hhmm(p.s),hhmm(e)+(e>1440?'+1':''),fmt2(netH(cur,p)),p.e==='ext'?'extern':lvlLabel(cur,p),p.e==='ext'?'':(p.f?'7 T.':'5 T.'),p.l?'ja':'–','']}),
+        columnStyles:{0:{cellWidth:42},1:{cellWidth:20},2:{cellWidth:11},3:{cellWidth:15,overflow:'visible'},4:{cellWidth:10,halign:'right'},5:{cellWidth:27},6:{cellWidth:10},7:{cellWidth:10},8:{cellWidth:TLW}},
+        rowPageBreak:'avoid',
+        didDrawCell:h=>{if(h.column.index!==8)return;if(h.section==='head')drawTimeline(h.cell,null,d,true);else drawTimeline(h.cell,rows[h.row.index].p,d,false)},
+        didDrawPage:()=>{}});
+      y=doc.lastAutoTable.finalY+3;
+      /* Lücken-Leiste unter der Tabelle */
+      if(o&&o.days[ui.refDay].on){const g=gapsFor(d,ui.refDay);if(g.length){const x0=W-M-TLW+1.5,w=TLW-3;draw(C.warn);doc.setLineWidth(0.25);g.forEach(([a,b])=>{const bx=x0+w*a/1440,bw=w*(b-a)/1440;doc.rect(bx,y-1.5,bw,2.4);for(let k=bx;k<bx+bw-0.6;k+=1.2)doc.line(k,y+0.9,Math.min(k+0.9,bx+bw),y-1.5)});font(6.5);ink(C.warn);txt('Lücken',x0-1.5,y+0.6,{align:'right'});y+=4}}
+      y+=3;
+    }
+  }
+
+  /* --- 5 Jahresbedarf --- */
+  newPage();y=sectionTitle('Jahresbedarf','Besetzung im Tagesverlauf (intern) und Bedarf je Abteilung');
+  {const cx=M+10,cy=y+2,cw=CW-12,ch=46;const mx=Math.max(1,...cov.map(c=>c.n));const step=mx<=10?2:mx<=25?5:mx<=60?10:mx<=150?25:50;const top=Math.ceil(mx/step)*step;
+    const X=i=>cx+cw*i/48,Y=v=>cy+ch-ch*v/top;
+    font(6.5);ink(C.ink3);draw(C.hair);doc.setLineWidth(0.1);
+    for(let v=0;v<=top;v+=step){doc.line(cx,Y(v),cx+cw,Y(v));txt(String(v),cx-2,Y(v)+1,{align:'right'})}
+    for(let h=0;h<=24;h+=3)txt(String(h).padStart(2,'0')+':00',X(h*2),cy+ch+4.5,{align:h===0?'left':h===24?'right':'center'});
+    const pts=[];cov.forEach((c,i)=>{pts.push([X(i),Y(c.n)],[X(i+1),Y(c.n)])});
+    fill([232,221,212]);doc.lines(pts.slice(1).map((p,i)=>[p[0]-pts[i][0],p[1]-pts[i][1]]).concat([[0,Y(0)-pts[pts.length-1][1]],[X(0)-X(48),0],[0,pts[0][1]-Y(0)]]),pts[0][0],pts[0][1],[1,1],'F',true);
+    draw(C.terra);doc.setLineWidth(0.5);for(let i=1;i<pts.length;i++)doc.line(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);
+    const px=(X(pk)+X(pk+1))/2,py=Y(cov[pk].n);fill(C.terra);doc.circle(px,py,0.9,'F');font(7.5,'bold');ink(C.ink);txt(`Spitze ${cov[pk].n} MA · ${hhmm(TIMES[pk])}`,Math.min(Math.max(px,cx+25),cx+cw-25),py-2.5,{align:'center'});
+    y=cy+ch+10;}
+  const resBody=[];const divRows=new Set();
+  for(const dv of cur.divs){const D=R.divs[dv.id];divRows.add(resBody.length);resBody.push([dv.name.toUpperCase(),fmt0(D.heads),fmt2(D.d5),fmt2(D.d7),fmt2(D.ideal),fmt0(D.hrs),fmt2(D.fte),fmt0(D.lock)]);
+    for(const d of dv.deps){const r=R.deps[d.id];resBody.push(['   '+d.name,fmt0(r.heads),fmt2(r.d5),fmt2(r.d7),fmt2(r.ideal),fmt0(r.hrs),fmt2(r.fte),fmt0(r.lock)])}}
+  const totIdx=resBody.length;resBody.push(['GESAMT',fmt0(T.heads),fmt2(T.d5),fmt2(T.d7),fmt2(T.ideal),fmt0(T.hrs),fmt2(T.fte),fmt0(T.lock)]);
+  doc.autoTable({...tblBase,startY:y,head:[['Abteilung','Heads','5-Tage','7-Tage','IDEAL','Std / Jahr','FTE','Spinde']],body:resBody,
+    columnStyles:{0:{cellWidth:90},1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'},7:{halign:'right'}},
+    didParseCell:h=>{if(typeof h.cell.raw==='string')h.cell.text=[PT(h.cell.raw)];if(h.section==='head'&&h.column.index>0)h.cell.styles.halign='right';
+      if(h.section!=='body')return;if(h.column.index===4)h.cell.styles.textColor=C.terra;
+      if(divRows.has(h.row.index)){h.cell.styles.fontStyle='bold';h.cell.styles.cellPadding={top:3,bottom:1.3,left:1.6,right:1.6};h.cell.styles.lineColor=C.line}
+      if(h.row.index===totIdx){h.cell.styles.fontStyle='bold';h.cell.styles.fontSize=8.5;h.cell.styles.lineWidth={top:0.4,bottom:0};h.cell.styles.lineColor=C.ink}}});
+  font(7);ink(C.ink2);txt('5-Tage und 7-Tage: nach Beschäftigungsausmaß gewichtete Köpfe pro Tag, getrennt nach FTE-Haken.',M,doc.lastAutoTable.finalY+5);
+
+  /* --- 6 Methodik --- */
+  newPage();y=sectionTitle('Methodik');
+  const meth=[
+    ['Grundidee','Der Tagesdienstplan beschreibt einen typischen Betriebstag. Daraus wird der Personalbedarf für ein Jahr hochgerechnet: über Arbeitstage (IDEAL) und über Arbeitsstunden (FTE).'],
+    ['Schichten und Pausen',`Pausenregel ${brkName()}. Eine Pause wird nur abgezogen, wenn die Arbeitszeit die gesetzliche Schwelle überschreitet${cur.brk.paid?'; sie zählt als Arbeitszeit':''}. Stufen: ${cur.brk.tiers.map(t=>`${cur.brk.op==='>='?'ab':'mehr als'} ${fmt1(t.h)} Std -> ${t.m} Min.`).join(' · ')}.`],
+    ['Beschäftigungsausmaß',`Arbeitszeit pro Tag ÷ ${fmt1(dayBase(cur))} h Vollzeit-Tag (FTE-Basis ${y0.fteWeek} Std ÷ 5 Tage). Vollzeit ab ${cur.lvl.full} %, Teilzeit ab ${cur.lvl.part} %, darunter Part Timer. Das Ausmaß gewichtet die Position im IDEAL.`],
+    ['FTE-Haken',`Ohne Haken: Position an 5 Tagen pro Woche, zählt 1 : 1 ohne Vertretung. Mit Haken: Bedarf an 7 Tagen pro Woche, hochgerechnet mit ${y0.ops} ÷ ${R.wd} = ${R.wd?fmt2(y0.ops/R.wd):'–'}.`],
+    ['Heads',`Intern besetzte Schichten pro Tag ohne Fremdfirmen: ${fmt0(T.heads)}.`],
+    ['IDEAL',`Arbeitstage je Mitarbeiter = ${wdText(y0)} = ${R.wd}. IDEAL = 5-Tage-Positionen (${fmt2(T.d5)}) + 7-Tage-Positionen (${fmt2(T.d7)}) × ${R.wd?fmt2(y0.ops/R.wd):'–'} = ${fmt2(T.ideal)}.`],
+    ['FTE',`Arbeitsstunden der Schicht × 5 oder 7 Tage × ${y0.weeks} Wochen ÷ (${y0.fteWeek} Std × ${y0.weeks} Wochen) = ${fmt2(T.fte)}. FTE berücksichtigt keine Abwesenheiten; die Differenz zu IDEAL ist der Puffer für Urlaub, Frei und Krankheit.`],
+    ['Abdeckung der Öffnungszeiten','In 15-Minuten-Schritten wird geprüft, ob während der Öffnung eines Outlets mindestens eine Schicht der zugeordneten Abteilung läuft (inkl. Fremdfirma).'],
+    ['Spinde',`Positionen mit Spind-Haken: interne Mitarbeiter ohne Executive-Team plus Fremdfirmen: ${fmt0(T.lock)}.`],
+    ['Housekeeping',`Zimmermädchen = Zimmer × Auslastung ÷ Zimmer je Mitarbeiter, aufgerundet: ${cur.hk.rooms} × ${Math.round(cur.hk.occ*100)} % ÷ ${cur.hk.per} -> ${hkCount(cur)}${cur.hk.auto?'':' (ausgeschaltet)'}.`]];
+  const colW=(CW-12)/2;let col=0,yc=[y,y];
+  for(const [h,t] of meth){const lines=doc.splitTextToSize(PT(t),colW-6);const need=8+lines.length*3.8;
+    if(yc[col]+need>H-18){col++;if(col>1){newPage();col=0;yc=[26,26]}}
+    const x=M+col*(colW+12);draw(C.line);doc.setLineWidth(0.25);doc.line(x,yc[col]-3,x,yc[col]+need-6);
+    font(8.5,'bold');ink(C.ink);doc.setCharSpace(0.3);txt(h.toUpperCase(),x+4,yc[col]);doc.setCharSpace(0);font(8);ink(C.ink2);doc.text(lines,x+4,yc[col]+5);yc[col]+=need+2}
+
+  /* --- Kopf- und Fußzeile --- */
+  const n=doc.getNumberOfPages();
+  for(let i=2;i<=n;i++){doc.setPage(i);
+    if(logo)doc.addImage(logo,'PNG',M,10,24,3.9);draw(C.line);doc.setLineWidth(0.2);doc.line(M+27.5,9.5,M+27.5,14.5);
+    font(7.5);ink(C.ink);doc.setCharSpace(0.8);txt('MANNING GUIDE',M+31,13.6);doc.setCharSpace(0);
+    font(7.5);ink(C.ink2);txt(`${cur.name} · ${cur.status}`,W-M,13.6,{align:'right'});
+    draw(C.hair);doc.setLineWidth(0.2);doc.line(M,18,W-M,18);doc.line(M,H-11,W-M,H-11);
+    font(6.5);ink(C.ink3);txt('mamu hospitality · Schönbrunner Straße 179 · AT-1120 Vienna',M,H-6.5);txt(`${dateStr} · Seite ${i} / ${n}`,W-M,H-6.5,{align:'right'})}
+  return doc.output('blob');
+}
+
+/* ---------- boot ---------- */
+render();
+(async()=>{
+  const c=window.claude?await claude.use('db').catch(()=>null):null;
+  booting=false;
+  if(!c){localMode=true;let all=null,last='';
+    try{all=JSON.parse(localStorage.getItem('mg-projects')||'null')}catch(e){}
+    if(!all||!Object.keys(all).length){let p=null;try{p=JSON.parse(localStorage.getItem('mg-local')||'null')}catch(e){}p=p&&p.divs?p:newProject(true);all={[p.id]:p}}
+    for(const k in all)all[k]=normalize(all[k]);projects=all;
+    try{last=localStorage.getItem('mg-cur')||''}catch(e){}
+    cur=projects[last]||Object.values(projects).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];localSave();
+    setStatus('saved','Im Browser gespeichert');$('#btnBackup').hidden=false;render();return}
+  db=c;setStatus('idle','Verbunden');
+  let first=true,last='';try{last=localStorage.getItem('mg-cur')||''}catch(e){}
+  db.collection('projects').onSnapshot(snap=>{
+    const next={};snap.docs.forEach(d=>{const x=d.data();if(x&&x.divs)next[d.id]=normalize({...JSON.parse(JSON.stringify(x)),id:d.id})});
+    if(cur&&!next[cur.id]&&(dirty||saving))next[cur.id]=cur;
+    if(cur&&next[cur.id]){
+      if(drag||dirty||saving||(next[cur.id].updatedAt||0)<=(cur.updatedAt||0))next[cur.id]=cur;
+      else{cur=next[cur.id];projects=next;render();return}
+    }
+    projects=next;
+    if(first){first=false;cur=projects[last]||Object.values(projects).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0]||null;setStatus('saved',Object.keys(projects).length?'Gespeichert':'Bereit');render();return}
+    if(cur&&!projects[cur.id])cur=Object.values(projects)[0]||null;
+    if(!cur&&Object.keys(projects).length){cur=Object.values(projects).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0];render();return}
+    renderProjSel();if(!cur)render();
+  },()=>{setStatus('error','Speicher nicht erreichbar');localMode=true;if(!cur){cur=newProject(true);projects={[cur.id]:cur}}render()});
+})();
+</script>
+</body>
+</html>
